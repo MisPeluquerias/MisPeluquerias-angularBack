@@ -10,7 +10,7 @@ const mysql = require("mysql2/promise");
 
 
 
-router.get("/chargeMarker", async (req, res) => {
+router.get("/chargeMarkersAndCard", async (req, res) => {
   try {
       const { northEastLat, northEastLng, southWestLat, southWestLng } = req.query;
 
