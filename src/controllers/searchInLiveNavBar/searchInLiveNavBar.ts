@@ -202,7 +202,7 @@ router.get("/searchCity", async (req, res) => {
 
     
     const query = `
-      SELECT name, MIN(zip_code) AS zip_code
+      SELECT id_city, name, MIN(zip_code) AS zip_code
       FROM city
       WHERE name LIKE ? OR zip_code LIKE ?
       GROUP BY name
