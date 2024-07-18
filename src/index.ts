@@ -5,6 +5,7 @@ import RegisteredsearchBusiness from './controllers/registered-search-map-busine
 import login from './controllers/login/login'
 import register from './controllers/register/register'
 import UnregisteredSearchBusiness from './controllers/unregistered-search-map-business/unregistered-search-map-business'
+import DetailsBusiness from './controllers/details-business/details-business'
 const app = express();
 app.use(express.json());
 
@@ -22,6 +23,7 @@ app.use(function(req, res, next) {
   app.use('/login',login);
   app.use('/register',register);
   app.use('/searchUnRegistered',UnregisteredSearchBusiness);
+  app.use('/details-business', DetailsBusiness)
 
 app.listen(3000, () => {
   console.log('Servidor iniciado en http://localhost:3000');

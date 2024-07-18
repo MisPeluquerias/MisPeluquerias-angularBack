@@ -9,9 +9,9 @@ router.use(bodyParser.json());
 
 router.get("/", async (req, res) => {
   try {
-    const { name } = req.query;
+    const { id } = req.query;
 
-    if (!name) {
+    if (!id) {
       return res.status(400).json({ error: "El parámetro 'zone' es requerido." });
     }
 
@@ -25,12 +25,12 @@ router.get("/", async (req, res) => {
 
     // Modificar la consulta para usar zip_code
     const query = `
-      SELECT id_salon, longitud, latitud, name, address, image 
+      SELECT longitud, latitud, name, address, image,phone,email,hours_old,url
       FROM salon
-      WHERE id_city = ? 
+      WHERE id_salon = ? 
     `;
 
-    connection.query(query, [name], (error, results) => {
+    connection.query(query, [id], (error, results) => {
       if (error) {
         console.error("Error al buscar el servicio:", error);
         return connection.rollback(() => {
