@@ -9,7 +9,6 @@ const SECRET_KEY = 'cosertyglobal';
 
 router.use(express.json());
 
-// Función para registrar un nuevo usuario
 router.post('/', async (req: Request, res: Response) => {
     const { email, password } = req.body;
 
@@ -34,8 +33,9 @@ router.post('/', async (req: Request, res: Response) => {
             console.log('Coincidencia de contraseña:', match); // Debugging
 
             if (match) {
+                // Genera el token con el id_user
                 const token = jwt.sign({ id: usuario.id_user }, SECRET_KEY, { expiresIn: '2h' });
-                return res.json({ token });
+                return res.json({ token, userId: usuario.id_user, permiso: usuario.permiso }); // Envía el token, el id_user y el permiso
             } else {
                 return res.status(401).json({ message: 'Credenciales inválidas' });
             }
@@ -47,24 +47,6 @@ router.post('/', async (req: Request, res: Response) => {
         return res.status(500).json({ message: 'Error interno del servidor' });
     }
 });
-/*
 
-// Función para actualizar las contraseñas existentes a bcrypt
-const updatePasswords = async () => {
-    const query = `SELECT id_user, password FROM user;`;
-    const [resultados]: any = await connection.promise().query(query);
-
-    for (const usuario of resultados) {
-        if (!usuario.password.startsWith('$2b$')) { // Verifica si la contraseña ya está hasheada
-            const hashedPassword = await bcrypt.hash(usuario.password, saltRounds);
-            const updateQuery = `UPDATE user SET password = ? WHERE id_user = ?;`;
-            await connection.promise().query(updateQuery, [hashedPassword, usuario.id_user]);
-            console.log(`Contraseña actualizada para el usuario ${usuario.id_user}`);
-        }
-    }
-};
-
-updatePasswords().catch(error => console.error('Error actualizando contraseñas:', error));
-*/
 
 export default router;

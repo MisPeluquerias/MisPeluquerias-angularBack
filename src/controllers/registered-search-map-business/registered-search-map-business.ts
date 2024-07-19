@@ -24,7 +24,7 @@ router.get("/chargeMarkersAndCard", async (req, res) => {
 
       
       const query = `
-        SELECT longitud, latitud, name, address, image FROM salon
+        SELECT id_salon, longitud, latitud, name, address, image FROM salon
         WHERE latitud BETWEEN ? AND ? AND longitud BETWEEN ? AND ?
       `;
 
