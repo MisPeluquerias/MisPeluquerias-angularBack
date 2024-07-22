@@ -356,7 +356,7 @@ router.post("/updateReview", async (req, res) => {
 
 router.post("/saveQuestion", async (req, res) => {
   try {
-    const { id_user, id_salon, question } = req.body;
+    const {id_salon, question } = req.body;
 
     if (!id_salon || !question) {
       return res.status(400).json({ error: "Todos los campos son requeridos." });
@@ -370,11 +370,11 @@ router.post("/saveQuestion", async (req, res) => {
     });
 
     const query = `
-      INSERT INTO faq (id_user, id_salon, question)
-      VALUES (?, ?, ?)
+      INSERT INTO faq (id_salon, question)
+      VALUES (?, ?)
     `;
 
-    connection.query(query, [id_user, id_salon, question], (error, results) => {
+    connection.query(query, [id_salon, question], (error, results) => {
       if (error) {
         console.error("Error al guardar la pregunta:", error);
         return connection.rollback(() => {

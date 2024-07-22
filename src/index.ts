@@ -2,8 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import searchBar from './controllers/searchInLiveNavBar/searchInLiveNavBar'
 import RegisteredsearchBusiness from './controllers/registered-search-map-business/registered-search-map-business'
-import login from './controllers/login/login'
-import register from './controllers/register/register'
+import Login from './controllers/login/login';
+import register from './controllers/register/register';
 import UnregisteredSearchBusiness from './controllers/unregistered-search-map-business/unregistered-search-map-business'
 import DetailsBusiness from './controllers/details-business/details-business'
 const app = express();
@@ -20,7 +20,7 @@ app.use(function(req, res, next) {
 
   app.use('/searchBar',searchBar);
   app.use('/business',RegisteredsearchBusiness);
-  app.use('/login',login);
+  app.use('/login',Login);
   app.use('/register',register);
   app.use('/searchUnRegistered',UnregisteredSearchBusiness);
   app.use('/details-business', DetailsBusiness)

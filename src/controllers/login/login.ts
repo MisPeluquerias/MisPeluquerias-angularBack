@@ -5,7 +5,7 @@ import bcrypt from 'bcrypt';
 
 const saltRounds = 10;
 const router = express.Router();
-const SECRET_KEY = 'cosertyglobal';
+const SECRET_KEY = 'uN3!pK@9rV$4zF6&hS*8xM2+bC0^wQ1!';
 
 router.use(express.json());
 
@@ -35,7 +35,10 @@ router.post('/', async (req: Request, res: Response) => {
             if (match) {
                 // Genera el token con el id_user
                 const token = jwt.sign({ id: usuario.id_user }, SECRET_KEY, { expiresIn: '2h' });
-                return res.json({ token, userId: usuario.id_user, permiso: usuario.permiso }); // Envía el token, el id_user y el permiso
+                const usuarioId = jwt.sign({ usuarioId: usuario.id_user }, SECRET_KEY, { expiresIn: '2h' });
+                const permiso = jwt.sign({ permiso: usuario.permiso }, SECRET_KEY, { expiresIn: '2h' });
+                return res.json({ token,usuarioId,permiso });
+           
             } else {
                 return res.status(401).json({ message: 'Credenciales inválidas' });
             }
