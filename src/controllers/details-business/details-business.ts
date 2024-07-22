@@ -3,6 +3,7 @@ const router = express.Router();
 import connection from "../../db/db";
 const bodyParser = require("body-parser");
 router.use(bodyParser.json());
+import decodeToken from '../functions/decodeToken';
 
 
 
@@ -111,11 +112,18 @@ router.post("/saveReview", async (req, res) => {
     // Usar req.body para obtener los datos enviados en el cuerpo de la solicitud
     const { id_user, id_salon, observacion, qualification } = req.body;
 
-    // Agregar un console.log para ver los datos recibidos
-    console.log('Datos recibidos en el servidor:', { id_user, id_salon, observacion, qualification });
+    // Decodifica el token para obtener el usuarioId
+    const usuarioId = decodeToken(id_user);
+    if (!usuarioId) {
+      return res.status(400).json({ error: "Token inválido o expirado." });
+    }
 
-    if (!id_salon) {
-      return res.status(400).json({ error: "El parámetro 'id_salon' es requerido." });
+    // Agregar un console.log para ver los datos recibidos y el usuarioId decodificado
+    console.log('Datos recibidos en el servidor:', { id_user, id_salon, observacion, qualification });
+    console.log(`ID de usuario decodificado: ${usuarioId}`);
+
+    if (!id_salon || !observacion || !qualification) {
+      return res.status(400).json({ error: "Todos los campos son requeridos." });
     }
 
     // Iniciar la transacción
@@ -132,7 +140,7 @@ router.post("/saveReview", async (req, res) => {
       VALUES (?, ?, ?, ?)
     `;
 
-    connection.query(query, [id_user, id_salon, observacion, qualification], (error, results) => {
+    connection.query(query, [usuarioId, id_salon, observacion, qualification], (error, results) => {
       if (error) {
         console.error("Error al guardar la reseña:", error);
         return connection.rollback(() => {
@@ -354,12 +362,38 @@ router.post("/updateReview", async (req, res) => {
   }
 });
 
-router.post("/saveQuestion", async (req, res) => {
+router.post("/saveFaq", async (req, res) => {
   try {
-    const {id_salon, question } = req.body;
+    const { id_user, id_salon, question } = req.body;
 
-    if (!id_salon || !question) {
+    if (!id_user || !id_salon || !question) {
       return res.status(400).json({ error: "Todos los campos son requeridos." });
+    }
+
+    // Decodifica el token para obtener el usuarioId
+    const usuarioId = decodeToken(id_user);
+    if (!usuarioId) {
+      return res.status(400).json({ error: "Token inválido o expirado." });
+    }
+
+    console.log('ID de usuario decodificado:', usuarioId);
+
+    // Verificar si el usuario existe en la tabla user
+    const checkUserQuery = `
+      SELECT id_user
+      FROM user
+      WHERE id_user = ?
+    `;
+
+    const userResults: any = await new Promise((resolve, reject) => {
+      connection.query(checkUserQuery, [usuarioId], (error, results) => {
+        if (error) return reject(error);
+        resolve(results);
+      });
+    });
+
+    if (!Array.isArray(userResults) || userResults.length === 0) {
+      return res.status(404).json({ error: "El usuario no existe." });
     }
 
     await new Promise((resolve, reject) => {
@@ -370,11 +404,11 @@ router.post("/saveQuestion", async (req, res) => {
     });
 
     const query = `
-      INSERT INTO faq (id_salon, question)
-      VALUES (?, ?)
+      INSERT INTO faq (id_user, id_salon, question)
+      VALUES (?, ?, ?)
     `;
 
-    connection.query(query, [id_salon, question], (error, results) => {
+    connection.query(query, [usuarioId, id_salon, question], (error, results) => {
       if (error) {
         console.error("Error al guardar la pregunta:", error);
         return connection.rollback(() => {
@@ -398,6 +432,7 @@ router.post("/saveQuestion", async (req, res) => {
     res.status(500).json({ error: "Error al guardar la pregunta." });
   }
 });
+
 
 // Endpoint para actualizar preguntas con respuestas
 router.post("/updateQuestion", async (req, res) => {

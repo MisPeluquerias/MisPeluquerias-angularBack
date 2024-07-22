@@ -1,20 +1,19 @@
 import express from "express";
-const router = express.Router();
 import connection from "../../db/db";
-const bodyParser = require("body-parser");
+import bodyParser from "body-parser";
+
+const router = express.Router();
 router.use(bodyParser.json());
-
-
-
 
 router.get("/", async (req, res) => {
   try {
-    const { name } = req.query;
+    const { id_city } = req.query;
 
-    if (!name) {
-      return res.status(400).json({ error: "El parámetro 'zone' es requerido." });
+    if (!id_city) {
+      return res.status(400).json({ error: "El parámetro 'id_city' es requerido." });
     }
 
+   
     // Iniciar la transacción
     await new Promise((resolve, reject) => {
       connection.beginTransaction((err) => {
@@ -23,30 +22,70 @@ router.get("/", async (req, res) => {
       });
     });
 
-    // Modificar la consulta para usar zip_code
-    const query = `
-      SELECT id_salon, longitud, latitud, name, address, image 
-      FROM salon
-      WHERE id_city = ? 
+    // Obtener el nombre de la ciudad con el id_city dado
+    const getCityNameQuery = `
+      SELECT name
+      FROM city
+      WHERE id_city = ?
     `;
 
-    connection.query(query, [name], (error, results) => {
+    connection.query(getCityNameQuery, [id_city], (error, results: any[]) => {
       if (error) {
-        console.error("Error al buscar el servicio:", error);
+        console.error("Error al obtener el nombre de la ciudad:", error);
         return connection.rollback(() => {
-          res.status(500).json({ error: "Error al buscar el servicio." });
+          res.status(500).json({ error: "Error al obtener el nombre de la ciudad." });
         });
       }
 
-      connection.commit((err) => {
-        if (err) {
-          console.error("Error al hacer commit:", err);
+      if (!Array.isArray(results) || results.length === 0) {
+        return res.status(404).json({ error: "No se encontró la ciudad con el id_city proporcionado." });
+      }
+
+      const cityName = results[0].name;
+
+      // Buscar todas las ciudades con el mismo nombre
+      const getCitiesQuery = `
+        SELECT id_city
+        FROM city
+        WHERE name = ?
+      `;
+
+      connection.query(getCitiesQuery, [cityName], (error, cityResults: any[]) => {
+        if (error) {
+          console.error("Error al buscar las ciudades:", error);
           return connection.rollback(() => {
-            res.status(500).json({ error: "Error al buscar el servicio." });
+            res.status(500).json({ error: "Error al buscar las ciudades." });
           });
         }
 
-        res.json(results);
+        const cityIds = cityResults.map(city => city.id_city);
+
+        // Obtener los salones en esas ciudades
+        const getSalonsQuery = `
+          SELECT id_salon, longitud, latitud, name, address, image 
+          FROM salon
+          WHERE id_city IN (?)
+        `;
+
+        connection.query(getSalonsQuery, [cityIds], (error, salonResults: any[]) => {
+          if (error) {
+            console.error("Error al buscar los salones:", error);
+            return connection.rollback(() => {
+              res.status(500).json({ error: "Error al buscar los salones." });
+            });
+          }
+
+          connection.commit((err) => {
+            if (err) {
+              console.error("Error al hacer commit:", err);
+              return connection.rollback(() => {
+                res.status(500).json({ error: "Error al hacer commit." });
+              });
+            }
+
+            res.json(salonResults);
+          });
+        });
       });
     });
   } catch (err) {
@@ -54,9 +93,5 @@ router.get("/", async (req, res) => {
     res.status(500).json({ error: "Error al buscar el servicio." });
   }
 });
-;
-  
-  
-
 
 export default router;

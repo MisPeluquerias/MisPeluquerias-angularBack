@@ -28,4 +28,3 @@ app.use(function(req, res, next) {
 app.listen(3000, () => {
   console.log('Servidor iniciado en http://localhost:3000');
 });
- 
