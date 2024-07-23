@@ -366,6 +366,7 @@ router.post("/saveFaq", async (req, res) => {
   try {
     const { id_user, id_salon, question } = req.body;
 
+  
     if (!id_user || !id_salon || !question) {
       return res.status(400).json({ error: "Todos los campos son requeridos." });
     }
@@ -377,24 +378,6 @@ router.post("/saveFaq", async (req, res) => {
     }
 
     console.log('ID de usuario decodificado:', usuarioId);
-
-    // Verificar si el usuario existe en la tabla user
-    const checkUserQuery = `
-      SELECT id_user
-      FROM user
-      WHERE id_user = ?
-    `;
-
-    const userResults: any = await new Promise((resolve, reject) => {
-      connection.query(checkUserQuery, [usuarioId], (error, results) => {
-        if (error) return reject(error);
-        resolve(results);
-      });
-    });
-
-    if (!Array.isArray(userResults) || userResults.length === 0) {
-      return res.status(404).json({ error: "El usuario no existe." });
-    }
 
     await new Promise((resolve, reject) => {
       connection.beginTransaction((err) => {
