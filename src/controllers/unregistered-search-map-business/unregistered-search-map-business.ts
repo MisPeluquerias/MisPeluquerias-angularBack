@@ -5,7 +5,7 @@ import bodyParser from "body-parser";
 const router = express.Router();
 router.use(bodyParser.json());
 
-router.get("/", async (req, res) => {
+router.get("/searchByCity", async (req, res) => {
   try {
     const { id_city } = req.query;
 
@@ -93,5 +93,62 @@ router.get("/", async (req, res) => {
     res.status(500).json({ error: "Error al buscar el servicio." });
   }
 });
+
+router.get("/searchByCityName", async (req, res) => {
+  try {
+    const { name } = req.query;
+
+    if (!name) {
+      return res.status(400).json({ error: "El parámetro 'name' es requerido." });
+    }
+
+  
+
+    // Iniciar la transacción
+    await new Promise((resolve, reject) => {
+      connection.beginTransaction((err) => {
+        if (err) return reject(err);
+        resolve(undefined);
+      });
+    });
+
+    // Buscar los salones en la ciudad con el nombre proporcionado
+    const getSalonsQuery = `
+      SELECT salon.id_salon, salon.longitud, salon.latitud, salon.name, salon.address, salon.image 
+      FROM salon
+      INNER JOIN city ON salon.id_city = city.id_city
+      WHERE city.name = ?`
+    ;
+
+    connection.query(getSalonsQuery, [name], (error, salonResults: any[]) => {
+      if (error) {
+        console.error("Error al buscar los salones:", error);
+        return connection.rollback(() => {
+          res.status(500).json({ error: "Error al buscar los salones." });
+        });
+      }
+
+      if (!Array.isArray(salonResults) || salonResults.length === 0) {
+        return res.status(404).json({ error: "No se encontraron salones en la ciudad proporcionada." });
+      }
+
+      connection.commit((err) => {
+        if (err) {
+          console.error("Error al hacer commit:", err);
+          return connection.rollback(() => {
+            res.status(500).json({ error: "Error al hacer commit." });
+          });
+        }
+
+        res.json(salonResults);
+      });
+    });
+  } catch (err) {
+    console.error("Error al buscar el servicio:", err);
+    res.status(500).json({ error: "Error al buscar el servicio." });
+  }
+});
+
+
 
 export default router;
