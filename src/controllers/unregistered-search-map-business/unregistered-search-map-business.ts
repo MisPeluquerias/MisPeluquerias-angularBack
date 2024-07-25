@@ -1,11 +1,12 @@
 import express from "express";
 import connection from "../../db/db";
 import bodyParser from "body-parser";
+import { QueryError,RowDataPacket } from 'mysql2'
 
 const router = express.Router();
 router.use(bodyParser.json());
 
-router.get("/searchByCity", async (req, res) => {
+router.get("/searchByCityById", async (req, res) => {
   try {
     const { id_city } = req.query;
 
@@ -94,6 +95,9 @@ router.get("/searchByCity", async (req, res) => {
   }
 });
 
+
+
+
 router.get("/searchByCityName", async (req, res) => {
   try {
     const { name } = req.query;
@@ -142,6 +146,40 @@ router.get("/searchByCityName", async (req, res) => {
 
         res.json(salonResults);
       });
+    });
+  } catch (err) {
+    console.error("Error al buscar el servicio:", err);
+    res.status(500).json({ error: "Error al buscar el servicio." });
+  }
+});
+
+router.get("/searchByName", async (req, res) => {
+  const { name } = req.query;
+
+  if (!name) {
+    return res.status(400).json({ error: "El parámetro 'name' es requerido." });
+  }
+
+  try {
+    const getSalonsByNameQuery = `
+      SELECT id_salon, longitud, latitud, name, address, image 
+      FROM salon
+      WHERE name LIKE ?
+    `;
+
+    const searchName = `%${name}%`;
+
+    connection.query<RowDataPacket[]>(getSalonsByNameQuery, [searchName], (error, results) => {
+      if (error) {
+        console.error("Error al buscar los salones por nombre:", error);
+        return res.status(500).json({ error: "Error al buscar los salones por nombre." });
+      }
+
+      if (results.length === 0) {
+        return res.status(404).json({ error: "No se encontraron salones con el nombre proporcionado." });
+      }
+
+      res.json(results);
     });
   } catch (err) {
     console.error("Error al buscar el servicio:", err);
