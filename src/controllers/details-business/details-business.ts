@@ -3,7 +3,7 @@ const router = express.Router();
 import connection from "../../db/db";
 const bodyParser = require("body-parser");
 router.use(bodyParser.json());
-import decodeToken from '../functions/decodeToken';
+import decodeToken from '../../functions/decodeToken';
 
 
 

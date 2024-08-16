@@ -6,7 +6,7 @@ import Login from './controllers/login/login';
 import register from './controllers/register/register';
 import UnregisteredSearchBusiness from './controllers/unregistered-search-map-business/unregistered-search-map-business'
 import DetailsBusiness from './controllers/details-business/details-business'
-import decodeTokenPermiso from './controllers/functions/decodeTokenPermiso';
+import decodeTokenPermiso from './functions/decodeTokenPermiso';
 
 const app = express();
 app.use(express.json());
