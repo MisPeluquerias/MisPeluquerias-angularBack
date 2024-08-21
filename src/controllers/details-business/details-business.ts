@@ -3,17 +3,16 @@ const router = express.Router();
 import connection from "../../db/db";
 const bodyParser = require("body-parser");
 router.use(bodyParser.json());
-import decodeToken from '../functions/decodeToken';
-
-
-
+import decodeToken from "../../functions/decodeToken";
 
 router.get("/", async (req, res) => {
   try {
     const { id } = req.query;
 
     if (!id) {
-      return res.status(400).json({ error: "El parámetro 'zone' es requerido." });
+      return res
+        .status(400)
+        .json({ error: "El parámetro 'zone' es requerido." });
     }
 
     // Iniciar la transacción
@@ -55,14 +54,14 @@ router.get("/", async (req, res) => {
     res.status(500).json({ error: "Error al buscar el servicio." });
   }
 });
-;
-
 router.get("/loadReview", async (req, res) => {
   try {
     const { id } = req.query;
 
     if (!id) {
-      return res.status(400).json({ error: "El parámetro 'zone' es requerido." });
+      return res
+        .status(400)
+        .json({ error: "El parámetro 'zone' es requerido." });
     }
 
     // Iniciar la transacción
@@ -104,9 +103,59 @@ router.get("/loadReview", async (req, res) => {
     res.status(500).json({ error: "Error al buscar el servicio." });
   }
 });
-;
+router.get("/getImagesAdmin", async (req, res) => {
+  try {
+    const { salon_id } = req.query;
 
+    if (!salon_id) {
+      return res
+        .status(400)
+        .json({ error: "El parámetro 'zone' es requerido." });
+    }
 
+    // Iniciar la transacción
+    await new Promise((resolve, reject) => {
+      connection.beginTransaction((err) => {
+        if (err) return reject(err);
+        resolve(undefined);
+      });
+    });
+
+    // Modificar la consulta para usar zip_code
+    const query = `
+      SELECT *
+      FROM file
+      WHERE salon_id = ? 
+    `;
+
+    connection.query(query, [salon_id], (error, results) => {
+      if (error) {
+        console.error("Error al buscar el servicio:", error);
+        return connection.rollback(() => {
+          res
+            .status(500)
+            .json({ error: "Error al buscar las imagenes en el salon:" });
+        });
+      }
+
+      connection.commit((err) => {
+        if (err) {
+          console.error("Error al hacer commit:", err);
+          return connection.rollback(() => {
+            res
+              .status(500)
+              .json({ error: "Error al buscar las imagenes en el salon:" });
+          });
+        }
+
+        res.json(results);
+      });
+    });
+  } catch (err) {
+    console.error("Error al buscar las imagenes en el salon:", err);
+    res.status(500).json({ error: "Error al buscar las imagenes en el salon" });
+  }
+});
 router.post("/saveReview", async (req, res) => {
   try {
     // Usar req.body para obtener los datos enviados en el cuerpo de la solicitud
@@ -119,11 +168,18 @@ router.post("/saveReview", async (req, res) => {
     }
 
     // Agregar un console.log para ver los datos recibidos y el usuarioId decodificado
-    console.log('Datos recibidos en el servidor:', { id_user, id_salon, observacion, qualification });
+    console.log("Datos recibidos en el servidor:", {
+      id_user,
+      id_salon,
+      observacion,
+      qualification,
+    });
     console.log(`ID de usuario decodificado: ${usuarioId}`);
 
     if (!id_salon || !observacion || !qualification) {
-      return res.status(400).json({ error: "Todos los campos son requeridos." });
+      return res
+        .status(400)
+        .json({ error: "Todos los campos son requeridos." });
     }
 
     // Iniciar la transacción
@@ -140,38 +196,43 @@ router.post("/saveReview", async (req, res) => {
       VALUES (?, ?, ?, ?)
     `;
 
-    connection.query(query, [usuarioId, id_salon, observacion, qualification], (error, results) => {
-      if (error) {
-        console.error("Error al guardar la reseña:", error);
-        return connection.rollback(() => {
-          res.status(500).json({ error: "Error al guardar la reseña." });
-        });
-      }
-
-      connection.commit((err) => {
-        if (err) {
-          console.error("Error al hacer commit:", err);
+    connection.query(
+      query,
+      [usuarioId, id_salon, observacion, qualification],
+      (error, results) => {
+        if (error) {
+          console.error("Error al guardar la reseña:", error);
           return connection.rollback(() => {
-            res.status(500).json({ error: "Error al hacer commit." });
+            res.status(500).json({ error: "Error al guardar la reseña." });
           });
         }
 
-        res.json({ message: "Reseña guardada exitosamente." });
-      });
-    });
+        connection.commit((err) => {
+          if (err) {
+            console.error("Error al hacer commit:", err);
+            return connection.rollback(() => {
+              res.status(500).json({ error: "Error al hacer commit." });
+            });
+          }
+
+          res.json({ message: "Reseña guardada exitosamente." });
+        });
+      }
+    );
   } catch (err) {
     console.error("Error al guardar la reseña:", err);
     res.status(500).json({ error: "Error al guardar la reseña." });
   }
 });
 
-
 router.get("/loadFaq", async (req, res) => {
   try {
     const { id } = req.query;
 
     if (!id) {
-      return res.status(400).json({ error: "El parámetro 'zone' es requerido." });
+      return res
+        .status(400)
+        .json({ error: "El parámetro 'zone' es requerido." });
     }
 
     // Iniciar la transacción
@@ -213,8 +274,6 @@ router.get("/loadFaq", async (req, res) => {
     res.status(500).json({ error: "Error al buscar el servicio." });
   }
 });
-;
-
 /*
 
 router.get("/loadServices", async (req, res) => {
@@ -273,7 +332,9 @@ router.post("/deleteReview", async (req, res) => {
     const { id_review } = req.body;
 
     if (!id_review) {
-      return res.status(400).json({ error: "El parámetro 'id_review' es requerido." });
+      return res
+        .status(400)
+        .json({ error: "El parámetro 'id_review' es requerido." });
     }
 
     // Iniciar la transacción
@@ -316,10 +377,17 @@ router.post("/updateReview", async (req, res) => {
     const { id_review, id_user, observacion, qualification } = req.body;
 
     // Agregar un console.log para ver los datos recibidos
-    console.log('Datos recibidos en el servidor para actualizar:', { id_review, id_user, observacion, qualification });
+    console.log("Datos recibidos en el servidor para actualizar:", {
+      id_review,
+      id_user,
+      observacion,
+      qualification,
+    });
 
     if (!id_review || !id_user || !observacion || !qualification) {
-      return res.status(400).json({ error: "Todos los campos son requeridos." });
+      return res
+        .status(400)
+        .json({ error: "Todos los campos son requeridos." });
     }
 
     // Iniciar la transacción
@@ -337,25 +405,29 @@ router.post("/updateReview", async (req, res) => {
       WHERE id_review = ?
     `;
 
-    connection.query(query, [id_user, observacion, qualification, id_review], (error, results) => {
-      if (error) {
-        console.error("Error al actualizar la reseña:", error);
-        return connection.rollback(() => {
-          res.status(500).json({ error: "Error al actualizar la reseña." });
-        });
-      }
-
-      connection.commit((err) => {
-        if (err) {
-          console.error("Error al hacer commit:", err);
+    connection.query(
+      query,
+      [id_user, observacion, qualification, id_review],
+      (error, results) => {
+        if (error) {
+          console.error("Error al actualizar la reseña:", error);
           return connection.rollback(() => {
-            res.status(500).json({ error: "Error al hacer commit." });
+            res.status(500).json({ error: "Error al actualizar la reseña." });
           });
         }
 
-        res.json({ message: "Reseña actualizada exitosamente." });
-      });
-    });
+        connection.commit((err) => {
+          if (err) {
+            console.error("Error al hacer commit:", err);
+            return connection.rollback(() => {
+              res.status(500).json({ error: "Error al hacer commit." });
+            });
+          }
+
+          res.json({ message: "Reseña actualizada exitosamente." });
+        });
+      }
+    );
   } catch (err) {
     console.error("Error al actualizar la reseña:", err);
     res.status(500).json({ error: "Error al actualizar la reseña." });
@@ -366,9 +438,10 @@ router.post("/saveFaq", async (req, res) => {
   try {
     const { id_user, id_salon, question } = req.body;
 
-  
     if (!id_user || !id_salon || !question) {
-      return res.status(400).json({ error: "Todos los campos son requeridos." });
+      return res
+        .status(400)
+        .json({ error: "Todos los campos son requeridos." });
     }
 
     // Decodifica el token para obtener el usuarioId
@@ -377,7 +450,7 @@ router.post("/saveFaq", async (req, res) => {
       return res.status(400).json({ error: "Token inválido o expirado." });
     }
 
-    console.log('ID de usuario decodificado:', usuarioId);
+    console.log("ID de usuario decodificado:", usuarioId);
 
     await new Promise((resolve, reject) => {
       connection.beginTransaction((err) => {
@@ -391,31 +464,34 @@ router.post("/saveFaq", async (req, res) => {
       VALUES (?, ?, ?)
     `;
 
-    connection.query(query, [usuarioId, id_salon, question], (error, results) => {
-      if (error) {
-        console.error("Error al guardar la pregunta:", error);
-        return connection.rollback(() => {
-          res.status(500).json({ error: "Error al guardar la pregunta." });
-        });
-      }
-
-      connection.commit((err) => {
-        if (err) {
-          console.error("Error al hacer commit:", err);
+    connection.query(
+      query,
+      [usuarioId, id_salon, question],
+      (error, results) => {
+        if (error) {
+          console.error("Error al guardar la pregunta:", error);
           return connection.rollback(() => {
-            res.status(500).json({ error: "Error al hacer commit." });
+            res.status(500).json({ error: "Error al guardar la pregunta." });
           });
         }
 
-        res.json({ message: "Pregunta guardada exitosamente." });
-      });
-    });
+        connection.commit((err) => {
+          if (err) {
+            console.error("Error al hacer commit:", err);
+            return connection.rollback(() => {
+              res.status(500).json({ error: "Error al hacer commit." });
+            });
+          }
+
+          res.json({ message: "Pregunta guardada exitosamente." });
+        });
+      }
+    );
   } catch (err) {
     console.error("Error al guardar la pregunta:", err);
     res.status(500).json({ error: "Error al guardar la pregunta." });
   }
 });
-
 
 // Endpoint para actualizar preguntas con respuestas
 router.post("/updateQuestion", async (req, res) => {
@@ -423,7 +499,9 @@ router.post("/updateQuestion", async (req, res) => {
     const { id_faq, answer } = req.body;
 
     if (!id_faq || !answer) {
-      return res.status(400).json({ error: "Todos los campos son requeridos." });
+      return res
+        .status(400)
+        .json({ error: "Todos los campos son requeridos." });
     }
 
     await new Promise((resolve, reject) => {
@@ -470,7 +548,9 @@ router.post("/deleteQuestion", async (req, res) => {
     const { id_faq } = req.body;
 
     if (!id_faq) {
-      return res.status(400).json({ error: "El parámetro 'id_faq' es requerido." });
+      return res
+        .status(400)
+        .json({ error: "El parámetro 'id_faq' es requerido." });
     }
 
     await new Promise((resolve, reject) => {
@@ -506,8 +586,77 @@ router.post("/deleteQuestion", async (req, res) => {
     res.status(500).json({ error: "Error al eliminar la pregunta." });
   }
 });
-  
-  
 
+router.get("/getServicesSalon", async (req, res) => {
+  try {
+    const { id_salon } = req.query;
+
+    if (!id_salon) {
+      return res
+        .status(400)
+        .json({ error: "El parámetro 'id_salon' es requerido." });
+    }
+
+    // Iniciar la transacción
+    await new Promise((resolve, reject) => {
+      connection.beginTransaction((err) => {
+        if (err) return reject(err);
+        resolve(undefined);
+      });
+    });
+
+    // Consulta para obtener los nombres de los servicios y los tipos de servicios relacionados por id_salon
+    const query = `
+   SELECT 
+    s.name AS service_name, 
+    GROUP_CONCAT(st.name ORDER BY st.name SEPARATOR '; ') AS service_type_names
+        FROM 
+          service s
+        INNER JOIN 
+    service_type st ON s.id_service = st.id_service
+        WHERE 
+          s.id_salon = ?
+      GROUP BY 
+            s.name;
+
+  `;
+
+    connection.query(query, [id_salon], (error, results) => {
+      if (error) {
+        console.error(
+          "Error al cargar los servicios y tipos de servicios:",
+          error
+        );
+        return connection.rollback(() => {
+          res
+            .status(500)
+            .json({
+              error: "Error al cargar los servicios y tipos de servicios.",
+            });
+        });
+      }
+
+      // Confirmar la transacción
+      connection.commit((err) => {
+        if (err) {
+          console.error("Error al hacer commit:", err);
+          return connection.rollback(() => {
+            res
+              .status(500)
+              .json({ error: "Error al confirmar la transacción." });
+          });
+        }
+
+        // Devolver los resultados
+        res.json({ services: results });
+      });
+    });
+  } catch (err) {
+    console.error("Error al cargar los servicios y tipos de servicios:", err);
+    res
+      .status(500)
+      .json({ error: "Error al cargar los servicios y tipos de servicios." });
+  }
+});
 
 export default router;
