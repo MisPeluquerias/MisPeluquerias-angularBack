@@ -24,13 +24,13 @@ router.post('/', async (req: Request, res: Response) => {
         const [rows]: any = await connection.promise().query(query, [email]);
         const resultado = rows;
 
-        console.log('Usuario encontrado:', resultado.length > 0); // Debugging
+        //console.log('Usuario encontrado:', resultado.length > 0); // Debugging
 
         if (resultado.length > 0) {
             const usuario: any = resultado[0];
             const match = await bcrypt.compare(password, usuario.password);
 
-            console.log('Coincidencia de contraseña:', match); // Debugging
+            //console.log('Coincidencia de contraseña:', match); // Debugging
 
             if (match) {
                 // Genera el token con el id_user
