@@ -67,7 +67,7 @@ router.get("/searchService", async (req, res) => {
       });
     });
 
-    const query = "SELECT * FROM service WHERE name LIKE ?";
+    const query = "SELECT DISTINCT name FROM service WHERE name LIKE ?";
 
     connection.query(query, [`%${name}%`], (error, results) => {
       if (error) {

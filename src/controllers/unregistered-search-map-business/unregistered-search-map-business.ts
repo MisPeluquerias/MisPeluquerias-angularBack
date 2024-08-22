@@ -187,6 +187,49 @@ router.get("/searchByName", async (req, res) => {
   }
 });
 
+router.get('/searchSalonByService', (req, res) => {
+  const { id_city, name } = req.query;  // Cambiado de req.body a req.query
 
+  const query = `
+    SELECT s.id_salon, s.name AS salon_name, c.name AS city_name, srv.name AS service_name
+    FROM salon s
+    INNER JOIN service srv ON s.id_salon = srv.id_salon
+    INNER JOIN city c ON s.id_city = c.id_city
+    WHERE srv.name LIKE ? AND c.id_city = ?
+  `;
+
+  // Iniciar la transacción
+  connection.beginTransaction(err => {
+    if (err) {
+      console.error('Error iniciando la transacción:', err);
+      return res.status(500).send('Error en el servidor.');
+    }
+
+    // Ejecutar la consulta
+    connection.query(query, [`%${name}%`, id_city], (err, results) => {
+      if (err) {
+        console.error('Error ejecutando la consulta:', err);
+
+        // Si hay un error, hacer un rollback
+        return connection.rollback(() => {
+          res.status(500).send('Error en el servidor.');
+        });
+      }
+
+      // Si todo sale bien, hacer commit
+      connection.commit(err => {
+        if (err) {
+          console.error('Error haciendo commit:', err);
+          return connection.rollback(() => {
+            res.status(500).send('Error en el servidor.');
+          });
+        }
+
+        // Enviar los resultados si el commit es exitoso
+        res.json(results);
+      });
+    });
+  });
+});
 
 export default router;
