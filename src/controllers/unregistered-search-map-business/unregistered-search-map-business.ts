@@ -62,6 +62,66 @@ router.get("/searchByCityById", async (req, res) => {
 });
 
 
+
+router.get("/searchByCityAndCategory", async (req, res) => {
+  try {
+    const { id_city, categoria } = req.query;
+
+    if (!id_city || !categoria) {
+      return res
+        .status(400)
+        .json({ error: "Los parámetros 'id_city' y 'categoria' son requeridos." });
+    }
+
+    // Iniciar la transacción
+    await new Promise((resolve, reject) => {
+      connection.beginTransaction((err) => {
+        if (err) return reject(err);
+        resolve(undefined);
+      });
+    });
+
+    // Consulta con INNER JOIN para obtener los salones en la ciudad específica y la categoría deseada
+    const query = `
+      SELECT s.id_salon, s.longitud, s.latitud, s.name, s.address, s.image
+      FROM salon s
+      INNER JOIN city c ON s.id_city = c.id_city
+      INNER JOIN categories cat ON s.id_salon = cat.id_salon
+      WHERE c.name = (
+        SELECT name
+        FROM city
+        WHERE id_city = ?
+      )
+      AND cat.categories = ?
+    `;
+
+    connection.query(query, [id_city, categoria], (error, results) => {
+      if (error) {
+        console.error("Error al buscar los salones:", error);
+        return connection.rollback(() => {
+          res.status(500).json({ error: "Error al buscar los salones." });
+        });
+      }
+
+      connection.commit((err) => {
+        if (err) {
+          console.error("Error al hacer commit:", err);
+          return connection.rollback(() => {
+            res.status(500).json({ error: "Error al hacer commit." });
+          });
+        }
+        res.json(results);
+      });
+    });
+  } catch (err) {
+    console.error("Error al buscar el servicio:", err);
+    res.status(500).json({ error: "Error al buscar el servicio." });
+  }
+});
+
+
+
+
 router.get("/searchByCityName", async (req, res) => {
   try {
     const { name } = req.query;
