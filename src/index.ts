@@ -7,6 +7,8 @@ import register from './controllers/register/register';
 import UnregisteredSearchBusiness from './controllers/unregistered-search-map-business/unregistered-search-map-business'
 import DetailsBusiness from './controllers/details-business/details-business'
 import decodeTokenPermiso from './functions/decodeTokenPermiso';
+import Contact from './controllers/contact/contact';
+import contactProffesional from './controllers/contact-proffesional/contact-proffesional';
 
 const app = express();
 app.use(express.json());
@@ -27,7 +29,8 @@ app.use(function(req, res, next) {
   app.use('/searchUnRegistered',UnregisteredSearchBusiness);
   app.use('/details-business', DetailsBusiness);
   app.use('/decode-permiso',decodeTokenPermiso);
-  
+  app.use('/contact',Contact);
+  app.use('/contact-proffesional',contactProffesional);
 app.listen(3900, () => {
   console.log('Servidor iniciado en http://localhost:3900');
 });
