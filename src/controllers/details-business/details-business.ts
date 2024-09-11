@@ -54,6 +54,9 @@ router.get("/", async (req, res) => {
     res.status(500).json({ error: "Error al buscar el servicio." });
   }
 });
+
+
+
 router.get("/loadReview", async (req, res) => {
   try {
     const { id } = req.query;
@@ -272,6 +275,58 @@ router.get("/loadFaq", async (req, res) => {
   } catch (err) {
     console.error("Error al buscar el servicio:", err);
     res.status(500).json({ error: "Error al buscar el servicio." });
+  }
+});
+
+
+
+router.get("/getDescriptionSalon", async (req, res) => {
+  try {
+    const { id_salon } = req.query;
+
+    if (!id_salon) {
+      return res
+        .status(400)
+        .json({ error: "El parametro id_salon es requerido." });
+    }
+
+    // Iniciar la transacción
+    await new Promise((resolve, reject) => {
+      connection.beginTransaction((err) => {
+        if (err) return reject(err);
+        resolve(undefined);
+      });
+    });
+
+    // Modificar la consulta para usar zip_code
+    const query = `
+      SELECT about_us
+      FROM salon
+      WHERE id_salon = ? 
+    `;
+
+    connection.query(query, [id_salon], (error, results) => {
+      if (error) {
+        console.error("Error al buscar el servicio:", error);
+        return connection.rollback(() => {
+          res.status(500).json({ error: "Error al buscar la descripción del salón." });
+        });
+      }
+
+      connection.commit((err) => {
+        if (err) {
+          console.error("Error al hacer commit:", err);
+          return connection.rollback(() => {
+            res.status(500).json({ error: "Error al buscar la descripcion del salón." });
+          });
+        }
+
+        res.json(results);
+      });
+    });
+  } catch (err) {
+    console.error("Error al buscar la descripción del salón:", err);
+    res.status(500).json({ error: "Error al buscar la descripción del salón." });
   }
 });
 /*

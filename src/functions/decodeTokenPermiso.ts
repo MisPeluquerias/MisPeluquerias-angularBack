@@ -6,11 +6,10 @@ const router = express.Router();
 
 function decodeTokenPermiso(token: string): any | null {
   try {
-    // Decodifica el token JWT utilizando la clave secreta
+
     const decoded: any = jwt.verify(token, secretKey);
     return decoded;
   } catch (error) {
-    // Si ocurre algún error durante la decodificación, se captura aquí
     console.error('Error al decodificar el token:', error);
     return null;
   }

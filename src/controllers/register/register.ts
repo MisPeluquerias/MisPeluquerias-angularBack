@@ -3,12 +3,11 @@ const router = express.Router();
 import connection from "../../db/db";
 const bodyParser = require("body-parser");
 router.use(bodyParser.json());
+import { RowDataPacket } from "mysql2";
 import bcrypt from 'bcrypt';
 
 
 const saltRounds = 10;
-
-
 
 
 
@@ -156,6 +155,60 @@ router.get("/searchProvince", async (req, res) => {
       console.error("Error al buscar la ciudad:", err);
       res.status(500).json({ error: "Error al buscar la ciudad." });
     }
+  });
+
+
+  router.get("/getProvinces", async (req: Request, res: Response) => {
+    const query = `SELECT id_province, name FROM province`;
+  
+    connection.query(query, (queryError, results: RowDataPacket[]) => {
+      if (queryError) {
+        console.error("Error fetching provinces:", queryError);
+        return res
+          .status(500)
+          .json({ error: "An error occurred while fetching the provinces" });
+      }
+  
+      res.json({ data: results });
+    });
+  });
+  
+  
+  router.get("/getCitiesByProvince", async (req: Request, res: Response) => {
+    const id_province = req.query.id_province;
+  
+    if (!id_province) {
+      return res.status(400).json({ error: "id_province is required" });
+    }
+  
+    const query = `
+      SELECT 
+        p.name as province_name,
+        c.id_city,
+        c.name as city_name,
+        c.zip_code
+      FROM 
+        province p
+      JOIN 
+        city c ON p.id_province = c.id_province
+      WHERE 
+        p.id_province = ?;
+    `;
+  
+    connection.query(
+      query,
+      [id_province],
+      (queryError, results: RowDataPacket[]) => {
+        if (queryError) {
+          console.error("Error fetching cities and province:", queryError);
+          return res.status(500).json({
+            error: "An error occurred while fetching the city and province data",
+          });
+        }
+  
+        res.json({ data: results });
+      }
+    );
   });
 
 

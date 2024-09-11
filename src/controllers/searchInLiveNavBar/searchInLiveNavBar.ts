@@ -4,6 +4,8 @@ import connection from "../../db/db";
 const bodyParser = require("body-parser");
 router.use(bodyParser.json());
 
+
+
 router.get("/searchCategory", async (req, res) => {
   try {
     const { name } = req.query;
@@ -67,7 +69,7 @@ router.get("/searchService", async (req, res) => {
       });
     });
 
-    const query = "SELECT * FROM service WHERE name LIKE ?";
+    const query = "SELECT DISTINCT name FROM service WHERE name LIKE ?";
 
     connection.query(query, [`%${name}%`], (error, results) => {
       if (error) {

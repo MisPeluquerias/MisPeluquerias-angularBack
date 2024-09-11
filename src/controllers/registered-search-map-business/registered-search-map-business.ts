@@ -3,7 +3,7 @@ const router = express.Router();
 import connection from "../../db/db";
 const bodyParser = require("body-parser");
 router.use(bodyParser.json());
-const mysql = require("mysql2/promise");
+
 
 
 
