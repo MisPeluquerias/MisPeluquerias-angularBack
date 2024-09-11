@@ -1,0 +1,48 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = __importDefault(require("express"));
+const cors_1 = __importDefault(require("cors"));
+const searchInLiveNavBar_1 = __importDefault(require("./controllers/searchInLiveNavBar/searchInLiveNavBar"));
+const registered_search_map_business_1 = __importDefault(require("./controllers/registered-search-map-business/registered-search-map-business"));
+const login_1 = __importDefault(require("./controllers/login/login"));
+const register_1 = __importDefault(require("./controllers/register/register"));
+const unregistered_search_map_business_1 = __importDefault(require("./controllers/unregistered-search-map-business/unregistered-search-map-business"));
+const details_business_1 = __importDefault(require("./controllers/details-business/details-business"));
+const decodeTokenPermiso_1 = __importDefault(require("./functions/decodeTokenPermiso"));
+const contact_1 = __importDefault(require("./controllers/contact/contact"));
+const contact_proffesional_1 = __importDefault(require("./controllers/contact-proffesional/contact-proffesional"));
+const salon_reclamation_1 = __importDefault(require("./controllers/salon-reclamation/salon-reclamation"));
+const home_1 = __importDefault(require("./controllers/home/home"));
+const profileUser_1 = __importDefault(require("./controllers/profileUser/profileUser"));
+const favorite_salon_1 = __importDefault(require("./controllers/favorite-salon/favorite-salon"));
+const generate_sitemap_1 = __importDefault(require("./functions/generate-sitemap"));
+const path_1 = __importDefault(require("path"));
+const app = (0, express_1.default)();
+app.use(express_1.default.json());
+app.use((0, cors_1.default)());
+app.use('/uploads-reclamation', express_1.default.static(path_1.default.join(__dirname, '../dist/uploads-reclamation')));
+app.use(function (req, res, next) {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type,Access-Control-Allow-Headers, Authorization, Accept");
+    next();
+});
+app.use('/searchBar', searchInLiveNavBar_1.default);
+app.use('/business', registered_search_map_business_1.default);
+app.use('/login', login_1.default);
+app.use('/register', register_1.default);
+app.use('/searchUnRegistered', unregistered_search_map_business_1.default);
+app.use('/details-business', details_business_1.default);
+app.use('/decode-permiso', decodeTokenPermiso_1.default);
+app.use('/contact', contact_1.default);
+app.use('/contact-proffesional', contact_proffesional_1.default);
+app.use('/salon-reclamation', salon_reclamation_1.default);
+app.use('/home', home_1.default);
+app.use('/profile-user', profileUser_1.default);
+app.use('/favorites', favorite_salon_1.default);
+app.use('/sitemap.xml', generate_sitemap_1.default);
+app.listen(3900, () => {
+    console.log('Servidor iniciado en http://localhost:3900');
+});
