@@ -179,4 +179,44 @@ router.post("/newReclamation", upload.fields([
         });
     });
 });
+router.get("/searchSalon", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { name } = req.query;
+        if (!name) {
+            return res
+                .status(400)
+                .json({ error: "El parámetro 'name' es requerido." });
+        }
+        // Iniciar la transacción
+        yield new Promise((resolve, reject) => {
+            db_1.default.beginTransaction((err) => {
+                if (err)
+                    return reject(err);
+                resolve(undefined);
+            });
+        });
+        const query = "SELECT * FROM salon WHERE name LIKE ?";
+        db_1.default.query(query, [`%${name}%`], (error, results) => {
+            if (error) {
+                console.error("Error al buscar el salón:", error);
+                return db_1.default.rollback(() => {
+                    res.status(500).json({ error: "Error al buscar el salón." });
+                });
+            }
+            db_1.default.commit((err) => {
+                if (err) {
+                    console.error("Error al hacer commit:", err);
+                    return db_1.default.rollback(() => {
+                        res.status(500).json({ error: "Error al buscar el salón." });
+                    });
+                }
+                res.json(results);
+            });
+        });
+    }
+    catch (err) {
+        console.error("Error al buscar el salón:", err);
+        res.status(500).json({ error: "Error al buscar el salón." });
+    }
+}));
 exports.default = router;

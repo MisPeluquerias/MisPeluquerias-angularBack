@@ -220,6 +220,54 @@ router.post("/newReclamation", upload.fields([
     );
   });
 })
+
+router.get("/searchSalon", async (req, res) => {
+  try {
+    const { name } = req.query;
+
+    if (!name) {
+      return res
+        .status(400)
+        .json({ error: "El parámetro 'name' es requerido." });
+    }
+
+    // Iniciar la transacción
+    await new Promise((resolve, reject) => {
+      connection.beginTransaction((err) => {
+        if (err) return reject(err);
+        resolve(undefined);
+      });
+    });
+
+    const query = "SELECT * FROM salon WHERE name LIKE ?";
+
+    connection.query(query, [`%${name}%`], (error, results) => {
+      if (error) {
+        console.error("Error al buscar el salón:", error);
+        return connection.rollback(() => {
+          res.status(500).json({ error: "Error al buscar el salón." });
+        });
+      }
+
+      connection.commit((err) => {
+        if (err) {
+          console.error("Error al hacer commit:", err);
+          return connection.rollback(() => {
+            res.status(500).json({ error: "Error al buscar el salón." });
+          });
+        }
+
+        res.json(results);
+      });
+    });
+  } catch (err) {
+    console.error("Error al buscar el salón:", err);
+    res.status(500).json({ error: "Error al buscar el salón." });
+  }
+});
   
+
+
+
 
 export default router;
