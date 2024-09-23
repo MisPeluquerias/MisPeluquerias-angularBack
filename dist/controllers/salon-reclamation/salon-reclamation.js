@@ -134,7 +134,7 @@ router.post("/newReclamation", upload.fields([
     if (!dniFrontUrl || !dniBackUrl || !fileUrl) {
         return res.status(400).send("Faltan archivos requeridos.");
     }
-    const { id_user, salon_name, id_province, id_city, observation, terms, } = req.body;
+    const { id_user, salon_name, id_province, id_city, observation, state = 'Pendiente', terms, } = req.body;
     if (!id_user || !salon_name || !id_province || !id_city || !terms) {
         return res.status(400).send("Faltan campos requeridos.");
     }
@@ -150,8 +150,8 @@ router.post("/newReclamation", upload.fields([
         if (err) {
             return res.status(500).send("Error en el servidor");
         }
-        const sql = `INSERT INTO salon_reclamacion (id_user, salon_name, id_province, id_city, observation, dnifront_path, dniback_path, file_path, terms)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        const sql = `INSERT INTO salon_reclamacion (id_user, salon_name, id_province, id_city, observation, dnifront_path, dniback_path, file_path, state, terms)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         db_1.default.query(sql, [
             usuarioId,
             salon_name,
@@ -160,7 +160,8 @@ router.post("/newReclamation", upload.fields([
             observation,
             dniFrontUrl, // Guardar la URL en lugar de la ruta del sistema de archivos
             dniBackUrl, // Guardar la URL en lugar de la ruta del sistema de archivos
-            fileUrl, // Guardar la URL en lugar de la ruta del sistema de archivos
+            fileUrl,
+            state, // Guardar la URL en lugar de la ruta del sistema de archivos
             terms,
         ], (err, result) => {
             if (err) {

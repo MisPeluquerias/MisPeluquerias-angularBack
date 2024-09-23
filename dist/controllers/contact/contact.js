@@ -16,16 +16,16 @@ const express_1 = __importDefault(require("express"));
 const db_1 = __importDefault(require("../../db/db"));
 const router = express_1.default.Router();
 router.post('/newContact', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { name, email, phone, msg, term_cond } = req.body;
+    const { name, email, phone, msg, state = 'Pendiente', term_cond } = req.body;
     // Usando una transacción con una conexión existente
     db_1.default.beginTransaction((err) => {
         if (err) {
             return res.status(500).json({ error: 'Error al iniciar la transacción' });
         }
         db_1.default.query(`
-      INSERT INTO contact (name, email, phone, text, terms_condition, created_at)
-      VALUES (?, ?, ?, ?, ?, NOW())
-      `, [name, email, phone, msg, term_cond], (err, results) => {
+      INSERT INTO contact (name, email, phone, text, state, terms_condition, created_at)
+      VALUES (?, ?, ?, ?, ?,?, NOW());
+      `, [name, email, phone, msg, state, term_cond], (err, results) => {
             if (err) {
                 return db_1.default.rollback(() => {
                     res.status(500).json({ error: 'Error al insertar el contacto' });

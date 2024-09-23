@@ -8,6 +8,6 @@ const connection = mysql2_1.default.createConnection({
     host: 'localhost',
     user: 'root',
     password: '',
-    database: 'mis_peluquerias',
+    database: 'sauco_peluqueria',
 });
 exports.default = connection;

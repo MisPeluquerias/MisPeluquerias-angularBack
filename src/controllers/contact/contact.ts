@@ -5,7 +5,7 @@ import connection from '../../db/db';
 const router = express.Router();
 
 router.post('/newContact', async (req, res) => {
-  const { name, email, phone, msg, term_cond } = req.body;
+  const { name, email, phone, msg, state='Pendiente', term_cond } = req.body;
 
   // Usando una transacción con una conexión existente
   connection.beginTransaction((err) => {
@@ -15,10 +15,10 @@ router.post('/newContact', async (req, res) => {
 
     connection.query<ResultSetHeader>(
       `
-      INSERT INTO contact (name, email, phone, text, terms_condition, created_at)
-      VALUES (?, ?, ?, ?, ?, NOW())
+      INSERT INTO contact (name, email, phone, text, state, terms_condition, created_at)
+      VALUES (?, ?, ?, ?, ?,?, NOW());
       `,
-      [name, email, phone, msg, term_cond],
+      [name, email, phone, msg, state, term_cond],
       (err, results) => {
         if (err) {
           return connection.rollback(() => {
