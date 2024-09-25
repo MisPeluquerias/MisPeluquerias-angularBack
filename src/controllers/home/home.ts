@@ -50,8 +50,4 @@ router.get("/getSalonValidated", async (req, res) => {
     }
   })
 
-
-
-
-
 export default router;
