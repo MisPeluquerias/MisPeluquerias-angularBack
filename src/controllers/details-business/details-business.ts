@@ -158,31 +158,18 @@ router.get("/getImagesAdmin", async (req, res) => {
     console.error("Error al buscar las imagenes en el salon:", err);
     res.status(500).json({ error: "Error al buscar las imagenes en el salon" });
   }
-});
-router.post("/saveReview", async (req, res) => {
+}); 
+
+
+
+router.get("/getReviews", async (req, res) => {
   try {
-    // Usar req.body para obtener los datos enviados en el cuerpo de la solicitud
-    const { id_user, id_salon, observacion, qualification } = req.body;
+    const { salon_id } = req.query;
 
-    // Decodifica el token para obtener el usuarioId
-    const usuarioId = decodeToken(id_user);
-    if (!usuarioId) {
-      return res.status(400).json({ error: "Token inválido o expirado." });
-    }
-
-    // Agregar un console.log para ver los datos recibidos y el usuarioId decodificado
-    console.log("Datos recibidos en el servidor:", {
-      id_user,
-      id_salon,
-      observacion,
-      qualification,
-    });
-    console.log(`ID de usuario decodificado: ${usuarioId}`);
-
-    if (!id_salon || !observacion || !qualification) {
+    if (!salon_id) {
       return res
         .status(400)
-        .json({ error: "Todos los campos son requeridos." });
+        .json({ error: "El parámetro 'zone' es requerido." });
     }
 
     // Iniciar la transacción
@@ -193,15 +180,99 @@ router.post("/saveReview", async (req, res) => {
       });
     });
 
-    // Insertar la reseña
+    // Modificar la consulta para usar zip_code
     const query = `
-      INSERT INTO review (id_user, id_salon, observacion, qualification)
-      VALUES (?, ?, ?, ?)
+      SELECT *
+      FROM review
+      WHERE id_salon = ? 
+    `;
+
+    connection.query(query, [salon_id], (error, results) => {
+      if (error) {
+        console.error("Error al buscar las valoraciones:", error);
+        return connection.rollback(() => {
+          res
+            .status(500)
+            .json({ error: "Error al buscar las valoracioens en el salon:" });
+        });
+      }
+
+      connection.commit((err) => {
+        if (err) {
+          console.error("Error al hacer commit:", err);
+          return connection.rollback(() => {
+            res
+              .status(500)
+              .json({ error: "Error al buscar las valoraciones en el salon:" });
+          });
+        }
+
+        res.json(results);
+      });
+    });
+  } catch (err) {
+    console.error("Error al buscar las valoraciones en el salon:", err);
+    res.status(500).json({ error: "Error al buscar las valoracioens en el salon" });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+router.post("/addReview", async (req, res) => {
+  try {
+    // Usar req.body para obtener los datos enviados en el cuerpo de la solicitud
+    const { id_user, id_salon, observacion, qualification } = req.body;
+
+    // Decodifica el token para obtener el usuarioId
+    const usuarioId = decodeToken(id_user);
+    if (!usuarioId) {
+      return res.status(400).json({ error: "Token inválido o expirado." });
+    }
+
+    // Asegúrate de que qualification sea un objeto o un string parseable a objeto
+    const { service, quality, cleanliness, speed } = JSON.parse(qualification);
+
+    // Verificar que todos los campos requeridos estén presentes
+    if (!id_salon || !observacion || !service || !quality || !cleanliness || !speed) {
+      return res.status(400).json({ error: "Todos los campos son requeridos." });
+    }
+
+    // Agregar un console.log para ver los datos recibidos y el usuarioId decodificado
+    console.log("Datos recibidos en el servidor:", {
+      id_user,
+      id_salon,
+      observacion,
+      service,
+      quality,
+      cleanliness,
+      speed,
+    });
+    console.log(`ID de usuario decodificado: ${usuarioId}`);
+
+    // Iniciar la transacción
+    await new Promise((resolve, reject) => {
+      connection.beginTransaction((err) => {
+        if (err) return reject(err);
+        resolve(undefined);
+      });
+    });
+
+    // Insertar la reseña con las calificaciones individuales
+    const query = `
+      INSERT INTO review (id_user, id_salon, observacion, servicio, calidad_precio, limpieza, puntualidad)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
 
     connection.query(
       query,
-      [usuarioId, id_salon, observacion, qualification],
+      [usuarioId, id_salon, observacion, service, quality, cleanliness, speed],
       (error, results) => {
         if (error) {
           console.error("Error al guardar la reseña:", error);
@@ -227,6 +298,9 @@ router.post("/saveReview", async (req, res) => {
     res.status(500).json({ error: "Error al guardar la reseña." });
   }
 });
+
+
+
 
 router.get("/loadFaq", async (req, res) => {
   try {
@@ -647,9 +721,7 @@ router.get("/getServicesSalon", async (req, res) => {
     const { id_salon } = req.query;
 
     if (!id_salon) {
-      return res
-        .status(400)
-        .json({ error: "El parámetro 'id_salon' es requerido." });
+      return res.status(400).json({ error: "El parámetro 'id_salon' es requerido." });
     }
 
     // Iniciar la transacción
@@ -662,55 +734,71 @@ router.get("/getServicesSalon", async (req, res) => {
 
     // Consulta para obtener los nombres de los servicios y los tipos de servicios relacionados por id_salon
     const query = `
-   SELECT 
-    s.name AS service_name, 
-    GROUP_CONCAT(st.name ORDER BY st.name SEPARATOR '; ') AS service_type_names
-        FROM 
-          service s
-        INNER JOIN 
-    service_type st ON s.id_service = st.id_service
-        WHERE 
-          s.id_salon = ?
-      GROUP BY 
-            s.name;
+      SELECT 
+        sst.id_salon_service_type,
+        sst.id_salon,
+        sst.id_service,
+        s.name AS service_name,
+        sst.id_service_type,
+        st.name AS service_type_name,
+        sst.time,
+        sst.active
+      FROM 
+        salon_service_type sst
+      INNER JOIN 
+        service s ON s.id_service = sst.id_service
+      INNER JOIN 
+        service_type st ON st.id_service_type = sst.id_service_type
+      WHERE 
+        sst.id_salon = ?
+      ORDER BY 
+        s.name, st.name;
+    `;
 
-  `;
-
-    connection.query(query, [id_salon], (error, results) => {
+    // Ejecutar la consulta
+    connection.query(query, [id_salon], (error, results: any[]) => {
       if (error) {
-        console.error(
-          "Error al cargar los servicios y tipos de servicios:",
-          error
-        );
+        console.error("Error al cargar los servicios y tipos de servicios:", error);
         return connection.rollback(() => {
-          res
-            .status(500)
-            .json({
-              error: "Error al cargar los servicios y tipos de servicios.",
-            });
+          res.status(500).json({ error: "Error al cargar los servicios y tipos de servicios." });
         });
       }
-
+    
+      // Asegúrate de que results es tratado como un arreglo de objetos
+      const groupedServices = results.reduce((acc: any, service: any) => {
+        const { service_name, service_type_name, time } = service;
+        
+        // Inicializa el array si el servicio no existe en el acumulador
+        if (!acc[service_name]) {
+          acc[service_name] = [];
+        }
+        
+        // Agrega el subservicio al servicio correspondiente
+        acc[service_name].push({
+          subservice: service_type_name,
+          time,
+        });
+        
+        return acc;
+      }, {});
+    
       // Confirmar la transacción
       connection.commit((err) => {
         if (err) {
           console.error("Error al hacer commit:", err);
           return connection.rollback(() => {
-            res
-              .status(500)
-              .json({ error: "Error al confirmar la transacción." });
+            res.status(500).json({ error: "Error al confirmar la transacción." });
           });
         }
-
-        // Devolver los resultados
-        res.json({ services: results });
+    
+        // Devolver los resultados agrupados
+        res.json(groupedServices);
       });
     });
+
   } catch (err) {
     console.error("Error al cargar los servicios y tipos de servicios:", err);
-    res
-      .status(500)
-      .json({ error: "Error al cargar los servicios y tipos de servicios." });
+    res.status(500).json({ error: "Error al cargar los servicios y tipos de servicios." });
   }
 });
 
