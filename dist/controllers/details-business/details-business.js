@@ -157,13 +157,11 @@ router.get("/getImagesAdmin", (req, res) => __awaiter(void 0, void 0, void 0, fu
         res.status(500).json({ error: "Error al buscar las imagenes en el salon" });
     }
 }));
-router.get("/getReviews", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.get("/getScoreReviews", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { salon_id } = req.query;
-        if (!salon_id) {
-            return res
-                .status(400)
-                .json({ error: "El parámetro 'zone' es requerido." });
+        const { id } = req.query;
+        if (!id) {
+            return res.status(400).json({ error: "El parámetro 'salon_id' es requerido." });
         }
         // Iniciar la transacción
         yield new Promise((resolve, reject) => {
@@ -173,43 +171,94 @@ router.get("/getReviews", (req, res) => __awaiter(void 0, void 0, void 0, functi
                 resolve(undefined);
             });
         });
-        // Modificar la consulta para usar zip_code
-        const query = `
-      SELECT *
+        // Consulta original para obtener promedios y total de reseñas
+        const queryAvg = `
+      SELECT 
+        AVG(servicio) AS avg_servicio,
+        AVG(calidad_precio) AS avg_calidad_precio,
+        AVG(limpieza) AS avg_limpieza,
+        AVG(puntualidad) AS avg_puntualidad,
+        AVG(qualification) AS avg_qualification,
+        COUNT(*) AS total_reviews
       FROM review
-      WHERE id_salon = ? 
+      WHERE id_salon = ?
     `;
-        db_1.default.query(query, [salon_id], (error, results) => {
-            if (error) {
-                console.error("Error al buscar las valoraciones:", error);
-                return db_1.default.rollback(() => {
-                    res
-                        .status(500)
-                        .json({ error: "Error al buscar las valoracioens en el salon:" });
+        // Consulta adicional para obtener el número de cada calificación (1 a 5)
+        const queryCount = `
+      SELECT 
+        COUNT(CASE WHEN qualification = 1 THEN 1 END) AS pesimo,
+        COUNT(CASE WHEN qualification = 2 THEN 1 END) AS malo,
+        COUNT(CASE WHEN qualification = 3 THEN 1 END) AS normal,
+        COUNT(CASE WHEN qualification = 4 THEN 1 END) AS muy_bueno,
+        COUNT(CASE WHEN qualification = 5 THEN 1 END) AS excelente,
+        COUNT(*) AS total_reviews
+      FROM review
+      WHERE id_salon = ?
+    `;
+        // Ejecutar ambas consultas con conversión de tipos
+        const [resultsAvg, resultsCount] = yield Promise.all([
+            new Promise((resolve, reject) => {
+                db_1.default.query(queryAvg, [id], (error, results) => {
+                    if (error)
+                        return reject(error);
+                    resolve(results); // Conversión a any[]
                 });
-            }
+            }),
+            new Promise((resolve, reject) => {
+                db_1.default.query(queryCount, [id], (error, results) => {
+                    if (error)
+                        return reject(error);
+                    resolve(results); // Conversión a any[]
+                });
+            })
+        ]);
+        const rowAvg = resultsAvg[0];
+        const rowCount = resultsCount[0];
+        // Calcular los porcentajes de cada calificación
+        if (rowCount && rowCount.total_reviews > 0) {
+            const pesimo_percentage = (rowCount.pesimo / rowCount.total_reviews) * 100;
+            const malo_percentage = (rowCount.malo / rowCount.total_reviews) * 100;
+            const normal_percentage = (rowCount.normal / rowCount.total_reviews) * 100;
+            const muy_bueno_percentage = (rowCount.muy_bueno / rowCount.total_reviews) * 100;
+            const excelente_percentage = (rowCount.excelente / rowCount.total_reviews) * 100;
             db_1.default.commit((err) => {
                 if (err) {
                     console.error("Error al hacer commit:", err);
                     return db_1.default.rollback(() => {
-                        res
-                            .status(500)
-                            .json({ error: "Error al buscar las valoraciones en el salon:" });
+                        res.status(500).json({ error: "Error al realizar commit." });
                     });
                 }
-                res.json(results);
+                // Responder con ambas consultas
+                res.json({
+                    promedio_servicio: Math.round(rowAvg.avg_servicio) || 0,
+                    promedio_calidad_precio: Math.round(rowAvg.avg_calidad_precio) || 0,
+                    promedio_limpieza: Math.round(rowAvg.avg_limpieza) || 0,
+                    promedio_puntualidad: Math.round(rowAvg.avg_puntualidad) || 0,
+                    promedio_qualification: Math.round(rowAvg.avg_qualification) || 0,
+                    total_reviews: rowAvg.total_reviews || 0,
+                    porcentajes: {
+                        pesimo: pesimo_percentage.toFixed(2),
+                        malo: malo_percentage.toFixed(2),
+                        normal: normal_percentage.toFixed(2),
+                        muy_bueno: muy_bueno_percentage.toFixed(2),
+                        excelente: excelente_percentage.toFixed(2)
+                    }
+                });
             });
-        });
+        }
+        else {
+            res.status(404).json({ message: "No se encontraron valoraciones para el salón." });
+        }
     }
     catch (err) {
-        console.error("Error al buscar las valoraciones en el salon:", err);
-        res.status(500).json({ error: "Error al buscar las valoracioens en el salon" });
+        console.error("Error al buscar las valoraciones en el salón:", err);
+        res.status(500).json({ error: "Error al buscar las valoraciones en el salón." });
     }
 }));
 router.post("/addReview", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         // Usar req.body para obtener los datos enviados en el cuerpo de la solicitud
-        const { id_user, id_salon, observacion, qualification } = req.body;
+        const { id_user, id_salon, observacion, qualification, averageQualification } = req.body;
         // Decodifica el token para obtener el usuarioId
         const usuarioId = (0, decodeToken_1.default)(id_user);
         if (!usuarioId) {
@@ -230,6 +279,7 @@ router.post("/addReview", (req, res) => __awaiter(void 0, void 0, void 0, functi
             quality,
             cleanliness,
             speed,
+            averageQualification
         });
         console.log(`ID de usuario decodificado: ${usuarioId}`);
         // Iniciar la transacción
@@ -242,10 +292,10 @@ router.post("/addReview", (req, res) => __awaiter(void 0, void 0, void 0, functi
         });
         // Insertar la reseña con las calificaciones individuales
         const query = `
-      INSERT INTO review (id_user, id_salon, observacion, servicio, calidad_precio, limpieza, puntualidad)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO review (id_user, id_salon, observacion, servicio, calidad_precio, limpieza, puntualidad, qualification)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
-        db_1.default.query(query, [usuarioId, id_salon, observacion, service, quality, cleanliness, speed], (error, results) => {
+        db_1.default.query(query, [usuarioId, id_salon, observacion, service, quality, cleanliness, speed, averageQualification], (error, results) => {
             if (error) {
                 console.error("Error al guardar la reseña:", error);
                 return db_1.default.rollback(() => {
