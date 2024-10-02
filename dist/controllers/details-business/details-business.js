@@ -36,7 +36,7 @@ router.get("/", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         });
         // Modificar la consulta para usar zip_code
         const query = `
-      SELECT longitud, latitud, name, address, image,phone,email,hours_old,url
+      SELECT state, longitud, latitud, name, address, image,phone,email,hours_old,url
       FROM salon
       WHERE id_salon = ? 
     `;
@@ -161,7 +161,9 @@ router.get("/getScoreReviews", (req, res) => __awaiter(void 0, void 0, void 0, f
     try {
         const { id } = req.query;
         if (!id) {
-            return res.status(400).json({ error: "El parámetro 'salon_id' es requerido." });
+            return res
+                .status(400)
+                .json({ error: "El parámetro 'salon_id' es requerido." });
         }
         // Iniciar la transacción
         yield new Promise((resolve, reject) => {
@@ -171,7 +173,7 @@ router.get("/getScoreReviews", (req, res) => __awaiter(void 0, void 0, void 0, f
                 resolve(undefined);
             });
         });
-        // Consulta original para obtener promedios y total de reseñas
+        // Consulta para obtener promedios y total de reseñas
         const queryAvg = `
       SELECT 
         AVG(servicio) AS avg_servicio,
@@ -185,13 +187,13 @@ router.get("/getScoreReviews", (req, res) => __awaiter(void 0, void 0, void 0, f
     `;
         // Consulta adicional para obtener el número de cada calificación (1 a 5)
         const queryCount = `
-      SELECT 
-        COUNT(CASE WHEN qualification = 1 THEN 1 END) AS pesimo,
-        COUNT(CASE WHEN qualification = 2 THEN 1 END) AS malo,
-        COUNT(CASE WHEN qualification = 3 THEN 1 END) AS normal,
-        COUNT(CASE WHEN qualification = 4 THEN 1 END) AS muy_bueno,
-        COUNT(CASE WHEN qualification = 5 THEN 1 END) AS excelente,
-        COUNT(*) AS total_reviews
+     SELECT 
+      COUNT(CASE WHEN qualification >= 1 AND qualification < 2 THEN 1 END) AS pesimo,
+      COUNT(CASE WHEN qualification >= 2 AND qualification < 3 THEN 1 END) AS malo,
+      COUNT(CASE WHEN qualification >= 3 AND qualification < 4 THEN 1 END) AS normal,
+      COUNT(CASE WHEN qualification >= 4 AND qualification < 5 THEN 1 END) AS muy_bueno,
+      COUNT(CASE WHEN qualification = 5 THEN 1 END) AS excelente,
+      COUNT(*) AS total_reviews
       FROM review
       WHERE id_salon = ?
     `;
@@ -210,10 +212,14 @@ router.get("/getScoreReviews", (req, res) => __awaiter(void 0, void 0, void 0, f
                         return reject(error);
                     resolve(results); // Conversión a any[]
                 });
-            })
+            }),
         ]);
         const rowAvg = resultsAvg[0];
         const rowCount = resultsCount[0];
+        // Función para redondear a medios
+        function redondearAMedios(numero) {
+            return Math.round(numero * 2) / 2;
+        }
         // Calcular los porcentajes de cada calificación
         if (rowCount && rowCount.total_reviews > 0) {
             const pesimo_percentage = (rowCount.pesimo / rowCount.total_reviews) * 100;
@@ -230,35 +236,162 @@ router.get("/getScoreReviews", (req, res) => __awaiter(void 0, void 0, void 0, f
                 }
                 // Responder con ambas consultas
                 res.json({
-                    promedio_servicio: Math.round(rowAvg.avg_servicio) || 0,
-                    promedio_calidad_precio: Math.round(rowAvg.avg_calidad_precio) || 0,
-                    promedio_limpieza: Math.round(rowAvg.avg_limpieza) || 0,
-                    promedio_puntualidad: Math.round(rowAvg.avg_puntualidad) || 0,
-                    promedio_qualification: Math.round(rowAvg.avg_qualification) || 0,
+                    promedio_servicio: rowAvg.avg_servicio
+                        ? rowAvg.avg_servicio.toFixed(2)
+                        : "0.00",
+                    promedio_calidad_precio: rowAvg.avg_calidad_precio
+                        ? rowAvg.avg_calidad_precio.toFixed(2)
+                        : "0.00",
+                    promedio_limpieza: rowAvg.avg_limpieza
+                        ? rowAvg.avg_limpieza.toFixed(2)
+                        : "0.00",
+                    promedio_puntualidad: rowAvg.avg_puntualidad
+                        ? rowAvg.avg_puntualidad.toFixed(2)
+                        : "0.00",
+                    promedio_qualification: redondearAMedios(rowAvg.avg_qualification) || 0,
                     total_reviews: rowAvg.total_reviews || 0,
                     porcentajes: {
                         pesimo: pesimo_percentage.toFixed(2),
                         malo: malo_percentage.toFixed(2),
                         normal: normal_percentage.toFixed(2),
                         muy_bueno: muy_bueno_percentage.toFixed(2),
-                        excelente: excelente_percentage.toFixed(2)
-                    }
+                        excelente: excelente_percentage.toFixed(2),
+                    },
                 });
             });
         }
         else {
-            res.status(404).json({ message: "No se encontraron valoraciones para el salón." });
+            res
+                .status(404)
+                .json({ message: "No se encontraron valoraciones para el salón." });
         }
     }
     catch (err) {
         console.error("Error al buscar las valoraciones en el salón:", err);
-        res.status(500).json({ error: "Error al buscar las valoraciones en el salón." });
+        res
+            .status(500)
+            .json({ error: "Error al buscar las valoraciones en el salón." });
+    }
+}));
+router.get("/getObservationReviews", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { id_salon } = req.query;
+        const page = parseInt(req.query.page) || 1; // Página actual (por defecto 1)
+        const limit = parseInt(req.query.limit) || 2; // Cantidad de reseñas por página (por defecto 2)
+        const offset = (page - 1) * limit; // Calcular el offset
+        if (!id_salon) {
+            return res
+                .status(400)
+                .json({ error: "El parámetro 'id_salon' es requerido." });
+        }
+        // Iniciar la transacción
+        yield new Promise((resolve, reject) => {
+            db_1.default.beginTransaction((err) => {
+                if (err)
+                    return reject(err);
+                resolve(undefined);
+            });
+        });
+        // Consulta para contar el número total de reseñas (agregado)
+        const totalQuery = `
+      SELECT COUNT(*) AS total
+      FROM review
+      WHERE id_salon = ?
+    `;
+        // Ejecutar la consulta para obtener el total de reseñas
+        const totalResult = yield new Promise((resolve, reject) => {
+            db_1.default.query(totalQuery, [id_salon], (error, results) => {
+                if (error) {
+                    return reject(error);
+                }
+                resolve(results);
+            });
+        });
+        const total = totalResult[0].total; // Total de reseñas
+        // Modificar la consulta para incluir paginación (LIMIT y OFFSET)
+        const query = `
+      SELECT *
+      FROM review
+      WHERE id_salon = ?
+      LIMIT ? OFFSET ?
+    `;
+        db_1.default.query(query, [id_salon, limit, offset], (error, results) => {
+            if (error) {
+                console.error("Error al buscar las reseñas:", error);
+                return db_1.default.rollback(() => {
+                    res
+                        .status(500)
+                        .json({ error: "Error al buscar las reseñas en el salón." });
+                });
+            }
+            // Verificar que results sea un array de RowDataPacket[]
+            if (Array.isArray(results)) {
+                // Mapear los resultados para agregar la recomendación basada en la calificación
+                const modifiedResults = results.map((review) => {
+                    // Solo procesamos si el objeto tiene la propiedad 'qualification'
+                    if ("qualification" in review) {
+                        // Función para determinar la recomendación basada en la calificación
+                        let recommendation = "";
+                        switch (parseInt(review.qualification, 10)) {
+                            case 5:
+                                recommendation = "Altamente Recomendado";
+                                break;
+                            case 4:
+                                recommendation = "Muy Recomendado";
+                                break;
+                            case 3:
+                                recommendation = "Recomendado";
+                                break;
+                            case 2:
+                                recommendation = "Poco Recomendado";
+                                break;
+                            case 1:
+                                recommendation = "No Recomendado";
+                                break;
+                            default:
+                                recommendation = "Sin clasificación";
+                        }
+                        return Object.assign(Object.assign({}, review), { recommendation });
+                    }
+                    else {
+                        // Manejo de caso donde no exista 'qualification'
+                        return Object.assign(Object.assign({}, review), { recommendation: "Sin clasificación" });
+                    }
+                });
+                db_1.default.commit((err) => {
+                    if (err) {
+                        console.error("Error al hacer commit:", err);
+                        return db_1.default.rollback(() => {
+                            res
+                                .status(500)
+                                .json({ error: "Error al confirmar la transacción." });
+                        });
+                    }
+                    // Enviar la respuesta con la recomendación y el total de reseñas
+                    res.json({
+                        page, // Página actual
+                        limit, // Límite por página
+                        total, // Total de reseñas (nuevo campo)
+                        results: modifiedResults, // Reseñas de la página actual
+                    });
+                });
+            }
+            else {
+                // Manejo del caso donde los resultados no sean un array (posible OkPacket)
+                console.error("Error: resultados no son un array.");
+                res.status(500).json({ error: "Resultados no válidos." });
+            }
+        });
+    }
+    catch (err) {
+        console.error("Error al buscar las reseñas en el salón:", err);
+        res.status(500).json({ error: "Error al buscar las reseñas en el salón." });
     }
 }));
 router.post("/addReview", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         // Usar req.body para obtener los datos enviados en el cuerpo de la solicitud
-        const { id_user, id_salon, observacion, qualification, averageQualification } = req.body;
+        const { id_user, id_salon, observacion, qualification, averageQualification, } = req.body;
         // Decodifica el token para obtener el usuarioId
         const usuarioId = (0, decodeToken_1.default)(id_user);
         if (!usuarioId) {
@@ -267,21 +400,16 @@ router.post("/addReview", (req, res) => __awaiter(void 0, void 0, void 0, functi
         // Asegúrate de que qualification sea un objeto o un string parseable a objeto
         const { service, quality, cleanliness, speed } = JSON.parse(qualification);
         // Verificar que todos los campos requeridos estén presentes
-        if (!id_salon || !observacion || !service || !quality || !cleanliness || !speed) {
-            return res.status(400).json({ error: "Todos los campos son requeridos." });
+        if (!id_salon ||
+            !observacion ||
+            !service ||
+            !quality ||
+            !cleanliness ||
+            !speed) {
+            return res
+                .status(400)
+                .json({ error: "Todos los campos son requeridos." });
         }
-        // Agregar un console.log para ver los datos recibidos y el usuarioId decodificado
-        console.log("Datos recibidos en el servidor:", {
-            id_user,
-            id_salon,
-            observacion,
-            service,
-            quality,
-            cleanliness,
-            speed,
-            averageQualification
-        });
-        console.log(`ID de usuario decodificado: ${usuarioId}`);
         // Iniciar la transacción
         yield new Promise((resolve, reject) => {
             db_1.default.beginTransaction((err) => {
@@ -295,7 +423,16 @@ router.post("/addReview", (req, res) => __awaiter(void 0, void 0, void 0, functi
       INSERT INTO review (id_user, id_salon, observacion, servicio, calidad_precio, limpieza, puntualidad, qualification)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
-        db_1.default.query(query, [usuarioId, id_salon, observacion, service, quality, cleanliness, speed, averageQualification], (error, results) => {
+        db_1.default.query(query, [
+            usuarioId,
+            id_salon,
+            observacion,
+            service,
+            quality,
+            cleanliness,
+            speed,
+            averageQualification,
+        ], (error, results) => {
             if (error) {
                 console.error("Error al guardar la reseña:", error);
                 return db_1.default.rollback(() => {
@@ -389,14 +526,18 @@ router.get("/getDescriptionSalon", (req, res) => __awaiter(void 0, void 0, void 
             if (error) {
                 console.error("Error al buscar el servicio:", error);
                 return db_1.default.rollback(() => {
-                    res.status(500).json({ error: "Error al buscar la descripción del salón." });
+                    res
+                        .status(500)
+                        .json({ error: "Error al buscar la descripción del salón." });
                 });
             }
             db_1.default.commit((err) => {
                 if (err) {
                     console.error("Error al hacer commit:", err);
                     return db_1.default.rollback(() => {
-                        res.status(500).json({ error: "Error al buscar la descripcion del salón." });
+                        res
+                            .status(500)
+                            .json({ error: "Error al buscar la descripcion del salón." });
                     });
                 }
                 res.json(results);
@@ -405,61 +546,11 @@ router.get("/getDescriptionSalon", (req, res) => __awaiter(void 0, void 0, void 
     }
     catch (err) {
         console.error("Error al buscar la descripción del salón:", err);
-        res.status(500).json({ error: "Error al buscar la descripción del salón." });
+        res
+            .status(500)
+            .json({ error: "Error al buscar la descripción del salón." });
     }
 }));
-/*
-
-router.get("/loadServices", async (req, res) => {
-  try {
-    const { id } = req.query;
-
-    if (!id) {
-      return res.status(400).json({ error: "El parámetro 'zone' es requerido." });
-    }
-
-    // Iniciar la transacción
-    await new Promise((resolve, reject) => {
-      connection.beginTransaction((err) => {
-        if (err) return reject(err);
-        resolve(undefined);
-      });
-    });
-
-    // Modificar la consulta para usar zip_code
-    const query = `
-      SELECT name
-      FROM service
-      WHERE id_salon = ?
-    `;
-
-    connection.query(query, [id], (error, results) => {
-      if (error) {
-        console.error("Error al buscar el servicio:", error);
-        return connection.rollback(() => {
-          res.status(500).json({ error: "Error al buscar el servicio." });
-        });
-      }
-
-      connection.commit((err) => {
-        if (err) {
-          console.error("Error al hacer commit:", err);
-          return connection.rollback(() => {
-            res.status(500).json({ error: "Error al buscar el servicio." });
-          });
-        }
-
-        res.json(results);
-      });
-    });
-  } catch (err) {
-    console.error("Error al buscar el servicio:", err);
-    res.status(500).json({ error: "Error al buscar el servicio." });
-  }
-});
-;
-
-*/
 router.post("/deleteReview", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id_review } = req.body;
@@ -503,19 +594,28 @@ router.post("/deleteReview", (req, res) => __awaiter(void 0, void 0, void 0, fun
 }));
 router.post("/updateReview", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { id_review, id_user, observacion, qualification } = req.body;
-        // Agregar un console.log para ver los datos recibidos
-        console.log("Datos recibidos en el servidor para actualizar:", {
-            id_review,
-            id_user,
-            observacion,
-            qualification,
-        });
-        if (!id_review || !id_user || !observacion || !qualification) {
+        const { id_review, observacion, qualification } = req.body;
+        if (!id_review || !observacion || !qualification) {
             return res
                 .status(400)
                 .json({ error: "Todos los campos son requeridos." });
         }
+        // Validar que `qualification` tenga las propiedades esperadas
+        const { service, quality, cleanliness, speed } = qualification;
+        if (typeof service !== "number" ||
+            typeof quality !== "number" ||
+            typeof cleanliness !== "number" ||
+            typeof speed !== "number") {
+            return res
+                .status(400)
+                .json({ error: "Los valores de calificación son inválidos." });
+        }
+        // Función para redondear a medios
+        const redondearAMedios = (numero) => {
+            return Math.round(numero * 2) / 2;
+        };
+        // Calcular el promedio de la calificación y redondearlo a medios
+        const averageQualification = redondearAMedios((service + quality + cleanliness + speed) / 4);
         // Iniciar la transacción
         yield new Promise((resolve, reject) => {
             db_1.default.beginTransaction((err) => {
@@ -524,19 +624,29 @@ router.post("/updateReview", (req, res) => __awaiter(void 0, void 0, void 0, fun
                 resolve(undefined);
             });
         });
-        // Actualizar la reseña sin modificar el id_salon
+        // Actualizar la reseña en la base de datos con el promedio redondeado
         const query = `
       UPDATE review
-      SET id_user = ?, observacion = ?, qualification = ?
+      SET observacion = ?, servicio = ?, calidad_precio = ?, limpieza = ?, puntualidad = ?, qualification = ?
       WHERE id_review = ?
     `;
-        db_1.default.query(query, [id_user, observacion, qualification, id_review], (error, results) => {
+        // Ejecutar la consulta de actualización
+        db_1.default.query(query, [
+            observacion,
+            service,
+            quality,
+            cleanliness,
+            speed,
+            averageQualification, // Guardar el promedio calculado y redondeado
+            id_review,
+        ], (error, results) => {
             if (error) {
                 console.error("Error al actualizar la reseña:", error);
                 return db_1.default.rollback(() => {
                     res.status(500).json({ error: "Error al actualizar la reseña." });
                 });
             }
+            // Confirmar la transacción
             db_1.default.commit((err) => {
                 if (err) {
                     console.error("Error al hacer commit:", err);
@@ -689,7 +799,9 @@ router.get("/getServicesSalon", (req, res) => __awaiter(void 0, void 0, void 0, 
     try {
         const { id_salon } = req.query;
         if (!id_salon) {
-            return res.status(400).json({ error: "El parámetro 'id_salon' es requerido." });
+            return res
+                .status(400)
+                .json({ error: "El parámetro 'id_salon' es requerido." });
         }
         // Iniciar la transacción
         yield new Promise((resolve, reject) => {
@@ -726,7 +838,11 @@ router.get("/getServicesSalon", (req, res) => __awaiter(void 0, void 0, void 0, 
             if (error) {
                 console.error("Error al cargar los servicios y tipos de servicios:", error);
                 return db_1.default.rollback(() => {
-                    res.status(500).json({ error: "Error al cargar los servicios y tipos de servicios." });
+                    res
+                        .status(500)
+                        .json({
+                        error: "Error al cargar los servicios y tipos de servicios.",
+                    });
                 });
             }
             // Asegúrate de que results es tratado como un arreglo de objetos
@@ -748,7 +864,9 @@ router.get("/getServicesSalon", (req, res) => __awaiter(void 0, void 0, void 0, 
                 if (err) {
                     console.error("Error al hacer commit:", err);
                     return db_1.default.rollback(() => {
-                        res.status(500).json({ error: "Error al confirmar la transacción." });
+                        res
+                            .status(500)
+                            .json({ error: "Error al confirmar la transacción." });
                     });
                 }
                 // Devolver los resultados agrupados
@@ -758,7 +876,9 @@ router.get("/getServicesSalon", (req, res) => __awaiter(void 0, void 0, void 0, 
     }
     catch (err) {
         console.error("Error al cargar los servicios y tipos de servicios:", err);
-        res.status(500).json({ error: "Error al cargar los servicios y tipos de servicios." });
+        res
+            .status(500)
+            .json({ error: "Error al cargar los servicios y tipos de servicios." });
     }
 }));
 exports.default = router;
