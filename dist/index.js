@@ -20,6 +20,7 @@ const profileUser_1 = __importDefault(require("./controllers/profileUser/profile
 const favorite_salon_1 = __importDefault(require("./controllers/favorite-salon/favorite-salon"));
 const generate_sitemap_1 = __importDefault(require("./functions/generate-sitemap"));
 const path_1 = __importDefault(require("path"));
+const decodeTokenIdUser_1 = __importDefault(require("./functions/decodeTokenIdUser"));
 const app = (0, express_1.default)();
 app.use(express_1.default.json());
 app.use((0, cors_1.default)());
@@ -43,6 +44,7 @@ app.use('/home', home_1.default);
 app.use('/profile-user', profileUser_1.default);
 app.use('/favorites', favorite_salon_1.default);
 app.use('/sitemap.xml', generate_sitemap_1.default);
+app.use('/decode-token', decodeTokenIdUser_1.default);
 app.listen(3900, () => {
     console.log('Servidor iniciado en http://localhost:3900');
 });

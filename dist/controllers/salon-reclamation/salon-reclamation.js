@@ -118,6 +118,7 @@ router.post("/newReclamation", upload.fields([
     { name: 'dni_front', maxCount: 1 },
     { name: 'dni_back', maxCount: 1 },
     { name: 'file_path', maxCount: 1 },
+    { name: 'invoice_path', maxCount: 1 }
 ]), (req, res) => {
     if (!req.files) {
         return res.status(400).send("No se subieron archivos.");
@@ -126,12 +127,14 @@ router.post("/newReclamation", upload.fields([
     const dniFrontPath = files['dni_front'] ? files['dni_front'][0].filename : null;
     const dniBackPath = files['dni_back'] ? files['dni_back'][0].filename : null;
     const filePath = files['file_path'] ? files['file_path'][0].filename : null;
+    const invoicePath = files['invoice_path'] ? files['invoice_path'][0].filename : null;
     // Construir la URL completa para cada archivo
     const dniFrontUrl = dniFrontPath ? `${req.protocol}://${req.get('host')}/uploads-reclamation/${dniFrontPath}` : null;
     const dniBackUrl = dniBackPath ? `${req.protocol}://${req.get('host')}/uploads-reclamation/${dniBackPath}` : null;
     const fileUrl = filePath ? `${req.protocol}://${req.get('host')}/uploads-reclamation/${filePath}` : null;
+    const invoiceUrl = invoicePath ? `${req.protocol}://${req.get('host')}/uploads-reclamation/${invoicePath}` : null;
     // Validar campos requeridos
-    if (!dniFrontUrl || !dniBackUrl || !fileUrl) {
+    if (!dniFrontUrl || !dniBackUrl || !fileUrl || !invoiceUrl) {
         return res.status(400).send("Faltan archivos requeridos.");
     }
     const { id_user, salon_name, id_province, id_city, observation, state = 'Pendiente', terms, } = req.body;
@@ -150,8 +153,8 @@ router.post("/newReclamation", upload.fields([
         if (err) {
             return res.status(500).send("Error en el servidor");
         }
-        const sql = `INSERT INTO salon_reclamacion (id_user, salon_name, id_province, id_city, observation, dnifront_path, dniback_path, file_path, state, terms)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        const sql = `INSERT INTO salon_reclamacion (id_user, salon_name, id_province, id_city, observation, dnifront_path, dniback_path, file_path,invoice_path, state, terms)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         db_1.default.query(sql, [
             usuarioId,
             salon_name,
@@ -161,6 +164,7 @@ router.post("/newReclamation", upload.fields([
             dniFrontUrl, // Guardar la URL en lugar de la ruta del sistema de archivos
             dniBackUrl, // Guardar la URL en lugar de la ruta del sistema de archivos
             fileUrl,
+            invoiceUrl,
             state, // Guardar la URL en lugar de la ruta del sistema de archivos
             terms,
         ], (err, result) => {

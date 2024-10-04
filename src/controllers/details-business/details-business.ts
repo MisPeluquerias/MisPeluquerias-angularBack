@@ -4,6 +4,7 @@ import connection from "../../db/db";
 const bodyParser = require("body-parser");
 router.use(bodyParser.json());
 import decodeToken from "../../functions/decodeToken";
+import { RowDataPacket } from 'mysql2';
 
 router.get("/", async (req, res) => {
   try {
@@ -501,14 +502,19 @@ router.post("/addReview", async (req, res) => {
   }
 });
 
-router.get("/loadFaq", async (req, res) => {
-  try {
-    const { id } = req.query;
 
-    if (!id) {
+
+router.get("/getFaqs", async (req, res) => {
+  try {
+    const { id_salon } = req.query;
+    const page = parseInt(req.query.page as string) || 1; // Página actual (por defecto 1)
+    const limit = parseInt(req.query.limit as string) || 4; // Cantidad de preguntas por página (por defecto 4)
+    const offset = (page - 1) * limit; // Calcular el desplazamiento
+
+    if (!id_salon) {
       return res
         .status(400)
-        .json({ error: "El parámetro 'zone' es requerido." });
+        .json({ error: "El parámetro 'id_salon' es requerido." });
     }
 
     // Iniciar la transacción
@@ -519,37 +525,65 @@ router.get("/loadFaq", async (req, res) => {
       });
     });
 
-    // Modificar la consulta para usar zip_code
-    const query = `
-      SELECT id_faq, question, answer,visible_web
+    // Primero obtener el número total de FAQs
+    const countQuery = `
+      SELECT COUNT(*) AS total
       FROM faq
-      WHERE id_salon = ? 
+      WHERE id_salon = ?
     `;
 
-    connection.query(query, [id], (error, results) => {
+    connection.query(countQuery, [id_salon], (error, countResult: RowDataPacket[]) => {
       if (error) {
-        console.error("Error al buscar el servicio:", error);
+        console.error("Error al contar las preguntas:", error);
         return connection.rollback(() => {
-          res.status(500).json({ error: "Error al buscar el servicio." });
+          res.status(500).json({ error: "Error al contar las preguntas." });
         });
       }
 
-      connection.commit((err) => {
-        if (err) {
-          console.error("Error al hacer commit:", err);
+      const totalFaqs = (countResult[0] as { total: number }).total;
+      const totalPages = Math.ceil(totalFaqs / limit);
+
+      // Ahora obtener los FAQs con paginación
+      const faqQuery = `
+        SELECT *
+        FROM faq
+        WHERE id_salon = ?
+        LIMIT ? OFFSET ?
+      `;
+
+      connection.query(faqQuery, [id_salon, limit, offset], (error, results: RowDataPacket[]) => {
+        if (error) {
+          console.error("Error al buscar las preguntas:", error);
           return connection.rollback(() => {
-            res.status(500).json({ error: "Error al buscar el servicio." });
+            res.status(500).json({ error: "Error al buscar las preguntas." });
           });
         }
 
-        res.json(results);
+        // Hacer commit de la transacción
+        connection.commit((err) => {
+          if (err) {
+            console.error("Error al hacer commit:", err);
+            return connection.rollback(() => {
+              res.status(500).json({ error: "Error al hacer commit." });
+            });
+          }
+
+          // Respuesta con los FAQs paginados y la información adicional
+          res.json({
+            currentPage: page,
+            totalPages: totalPages,
+            totalFaqs: totalFaqs,
+            faqs: results,
+          });
+        });
       });
     });
   } catch (err) {
-    console.error("Error al buscar el servicio:", err);
-    res.status(500).json({ error: "Error al buscar el servicio." });
+    console.error("Error al buscar las preguntas:", err);
+    res.status(500).json({ error: "Error al buscar las preguntas." });
   }
 });
+
 
 router.get("/getDescriptionSalon", async (req, res) => {
   try {
@@ -739,9 +773,13 @@ router.post("/updateReview", async (req, res) => {
   }
 });
 
-router.post("/saveFaq", async (req, res) => {
+
+
+router.post("/addFaq", async (req, res) => {
   try {
     const { id_user, id_salon, question } = req.body;
+
+    //console.log(req.body);
 
     if (!id_user || !id_salon || !question) {
       return res
@@ -801,9 +839,9 @@ router.post("/saveFaq", async (req, res) => {
 // Endpoint para actualizar preguntas con respuestas
 router.post("/updateQuestion", async (req, res) => {
   try {
-    const { id_faq, answer } = req.body;
+    const { id_faq, question } = req.body;
 
-    if (!id_faq || !answer) {
+    if (!id_faq || !question) {
       return res
         .status(400)
         .json({ error: "Todos los campos son requeridos." });
@@ -818,11 +856,11 @@ router.post("/updateQuestion", async (req, res) => {
 
     const query = `
       UPDATE faq
-      SET answer = ?
+      SET question = ?
       WHERE id_faq = ?
     `;
 
-    connection.query(query, [answer, id_faq], (error, results) => {
+    connection.query(query, [question, id_faq], (error, results) => {
       if (error) {
         console.error("Error al actualizar la pregunta:", error);
         return connection.rollback(() => {
@@ -846,6 +884,8 @@ router.post("/updateQuestion", async (req, res) => {
     res.status(500).json({ error: "Error al actualizar la pregunta." });
   }
 });
+
+
 
 // Endpoint para eliminar preguntas
 router.post("/deleteQuestion", async (req, res) => {

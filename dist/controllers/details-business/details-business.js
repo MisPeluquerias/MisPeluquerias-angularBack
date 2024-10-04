@@ -455,13 +455,16 @@ router.post("/addReview", (req, res) => __awaiter(void 0, void 0, void 0, functi
         res.status(500).json({ error: "Error al guardar la reseña." });
     }
 }));
-router.get("/loadFaq", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.get("/getFaqs", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { id } = req.query;
-        if (!id) {
+        const { id_salon } = req.query;
+        const page = parseInt(req.query.page) || 1; // Página actual (por defecto 1)
+        const limit = parseInt(req.query.limit) || 4; // Cantidad de preguntas por página (por defecto 4)
+        const offset = (page - 1) * limit; // Calcular el desplazamiento
+        if (!id_salon) {
             return res
                 .status(400)
-                .json({ error: "El parámetro 'zone' es requerido." });
+                .json({ error: "El parámetro 'id_salon' es requerido." });
         }
         // Iniciar la transacción
         yield new Promise((resolve, reject) => {
@@ -471,33 +474,57 @@ router.get("/loadFaq", (req, res) => __awaiter(void 0, void 0, void 0, function*
                 resolve(undefined);
             });
         });
-        // Modificar la consulta para usar zip_code
-        const query = `
-      SELECT id_faq, question, answer,visible_web
+        // Primero obtener el número total de FAQs
+        const countQuery = `
+      SELECT COUNT(*) AS total
       FROM faq
-      WHERE id_salon = ? 
+      WHERE id_salon = ?
     `;
-        db_1.default.query(query, [id], (error, results) => {
+        db_1.default.query(countQuery, [id_salon], (error, countResult) => {
             if (error) {
-                console.error("Error al buscar el servicio:", error);
+                console.error("Error al contar las preguntas:", error);
                 return db_1.default.rollback(() => {
-                    res.status(500).json({ error: "Error al buscar el servicio." });
+                    res.status(500).json({ error: "Error al contar las preguntas." });
                 });
             }
-            db_1.default.commit((err) => {
-                if (err) {
-                    console.error("Error al hacer commit:", err);
+            const totalFaqs = countResult[0].total;
+            const totalPages = Math.ceil(totalFaqs / limit);
+            // Ahora obtener los FAQs con paginación
+            const faqQuery = `
+        SELECT *
+        FROM faq
+        WHERE id_salon = ?
+        LIMIT ? OFFSET ?
+      `;
+            db_1.default.query(faqQuery, [id_salon, limit, offset], (error, results) => {
+                if (error) {
+                    console.error("Error al buscar las preguntas:", error);
                     return db_1.default.rollback(() => {
-                        res.status(500).json({ error: "Error al buscar el servicio." });
+                        res.status(500).json({ error: "Error al buscar las preguntas." });
                     });
                 }
-                res.json(results);
+                // Hacer commit de la transacción
+                db_1.default.commit((err) => {
+                    if (err) {
+                        console.error("Error al hacer commit:", err);
+                        return db_1.default.rollback(() => {
+                            res.status(500).json({ error: "Error al hacer commit." });
+                        });
+                    }
+                    // Respuesta con los FAQs paginados y la información adicional
+                    res.json({
+                        currentPage: page,
+                        totalPages: totalPages,
+                        totalFaqs: totalFaqs,
+                        faqs: results,
+                    });
+                });
             });
         });
     }
     catch (err) {
-        console.error("Error al buscar el servicio:", err);
-        res.status(500).json({ error: "Error al buscar el servicio." });
+        console.error("Error al buscar las preguntas:", err);
+        res.status(500).json({ error: "Error al buscar las preguntas." });
     }
 }));
 router.get("/getDescriptionSalon", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -663,9 +690,10 @@ router.post("/updateReview", (req, res) => __awaiter(void 0, void 0, void 0, fun
         res.status(500).json({ error: "Error al actualizar la reseña." });
     }
 }));
-router.post("/saveFaq", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.post("/addFaq", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id_user, id_salon, question } = req.body;
+        //console.log(req.body);
         if (!id_user || !id_salon || !question) {
             return res
                 .status(400)
@@ -714,8 +742,8 @@ router.post("/saveFaq", (req, res) => __awaiter(void 0, void 0, void 0, function
 // Endpoint para actualizar preguntas con respuestas
 router.post("/updateQuestion", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { id_faq, answer } = req.body;
-        if (!id_faq || !answer) {
+        const { id_faq, question } = req.body;
+        if (!id_faq || !question) {
             return res
                 .status(400)
                 .json({ error: "Todos los campos son requeridos." });
@@ -729,10 +757,10 @@ router.post("/updateQuestion", (req, res) => __awaiter(void 0, void 0, void 0, f
         });
         const query = `
       UPDATE faq
-      SET answer = ?
+      SET question = ?
       WHERE id_faq = ?
     `;
-        db_1.default.query(query, [answer, id_faq], (error, results) => {
+        db_1.default.query(query, [question, id_faq], (error, results) => {
             if (error) {
                 console.error("Error al actualizar la pregunta:", error);
                 return db_1.default.rollback(() => {

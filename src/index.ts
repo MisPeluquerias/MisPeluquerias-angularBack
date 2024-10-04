@@ -15,6 +15,7 @@ import ProfileUser from './controllers/profileUser/profileUser';
 import favoritesSalon from './controllers/favorite-salon/favorite-salon';
 import siteMap from './functions/generate-sitemap';
 import path from 'path';
+import decodeTokenIdUser from './functions/decodeTokenIdUser';
 
 const app = express();
 app.use(express.json());
@@ -43,7 +44,7 @@ app.use(function(req, res, next) {
   app.use('/profile-user',ProfileUser);
   app.use('/favorites',favoritesSalon);
   app.use('/sitemap.xml', siteMap);
-
+  app.use('/decode-token',decodeTokenIdUser);
 
 app.listen(3900, () => {
   console.log('Servidor iniciado en http://localhost:3900');
