@@ -909,4 +909,55 @@ router.get("/getServicesSalon", (req, res) => __awaiter(void 0, void 0, void 0, 
             .json({ error: "Error al cargar los servicios y tipos de servicios." });
     }
 }));
+router.get("/getBrandsBySalon", (req, res) => {
+    const id_salon = req.query.id_salon;
+    // Validar que el id_salon está presente
+    if (!id_salon) {
+        return res.status(400).json({
+            success: false,
+            message: "El id_salon es requerido",
+        });
+    }
+    db_1.default.beginTransaction((err) => {
+        if (err) {
+            console.error("Error starting transaction:", err);
+            return res.status(500).json({
+                success: false,
+                message: "Error starting transaction",
+                error: err,
+            });
+        }
+        const query = `
+      SELECT bs.id_brand_salon, b.name, b.imagePath 
+      FROM brands_salon bs
+      INNER JOIN brands b ON bs.id_brand = b.id_brand
+      WHERE bs.id_salon = ?`;
+        db_1.default.query(query, [id_salon], (err, results) => {
+            if (err) {
+                console.error("Error fetching brands:", err);
+                return db_1.default.rollback(() => {
+                    res.status(500).json({
+                        success: false,
+                        message: "Error fetching brands",
+                        error: err,
+                    });
+                });
+            }
+            db_1.default.commit((err) => {
+                if (err) {
+                    console.error("Error committing transaction:", err);
+                    return db_1.default.rollback(() => {
+                        res.status(500).json({
+                            success: false,
+                            message: "Error committing transaction",
+                            error: err,
+                        });
+                    });
+                }
+                // Si todo sale bien, devolver los resultados
+                res.json(results);
+            });
+        });
+    });
+});
 exports.default = router;
