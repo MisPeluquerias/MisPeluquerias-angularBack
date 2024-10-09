@@ -127,5 +127,6 @@ out
 .pnp.*
 
  #production
-dist/uploads
+/dist/uploads-reclamation/
+
 
