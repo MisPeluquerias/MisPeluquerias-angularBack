@@ -68,7 +68,7 @@ router.get("/getCitiesByProvince", async (req: Request, res: Response) => {
         p.id_province = ? 
       ORDER BY c.name;
     `;
-
+//desde git
   connection.query(
     query,
     [id_province],
