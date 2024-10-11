@@ -961,6 +961,7 @@ router.get("/getServicesSalon", async (req, res) => {
         sst.id_service_type,
         st.name AS service_type_name,
         sst.time,
+        sst.price,
         sst.active
       FROM 
         salon_service_type sst
@@ -992,7 +993,7 @@ router.get("/getServicesSalon", async (req, res) => {
 
       // Asegúrate de que results es tratado como un arreglo de objetos
       const groupedServices = results.reduce((acc: any, service: any) => {
-        const { service_name, service_type_name, time } = service;
+        const { service_name, service_type_name, time, price } = service;
 
         // Inicializa el array si el servicio no existe en el acumulador
         if (!acc[service_name]) {
@@ -1003,6 +1004,7 @@ router.get("/getServicesSalon", async (req, res) => {
         acc[service_name].push({
           subservice: service_type_name,
           time,
+          price
         });
 
         return acc;
@@ -1030,6 +1032,8 @@ router.get("/getServicesSalon", async (req, res) => {
       .json({ error: "Error al cargar los servicios y tipos de servicios." });
   }
 });
+
+
 
 
 router.get("/getBrandsBySalon", (req, res) => {

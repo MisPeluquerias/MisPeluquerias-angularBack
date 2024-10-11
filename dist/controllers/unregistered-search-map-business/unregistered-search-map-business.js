@@ -210,13 +210,16 @@ router.get("/searchByName", (req, res) => __awaiter(void 0, void 0, void 0, func
     }
 }));
 router.get("/searchSalonByService", (req, res) => {
-    const { id_city, name } = req.query; // Cambiado de req.body a req.query
+    const { id_city, name, province_name } = req.query;
+    console.log('Id de la ciudad:', id_city, 'Nombre del subservicio:', name, 'Nombre de la provincia:', province_name);
     const query = `
-    SELECT s.id_salon, s.name AS salon_name, c.name AS city_name, srv.name AS service_name
+    SELECT s.id_salon, s.name, s.latitud, s.longitud, s.address, s.image, c.name AS city_name, st.name AS subservice_name, p.name AS province_name
     FROM salon s
-    INNER JOIN service srv ON s.id_salon = srv.id_salon
+    INNER JOIN salon_service_type sst ON s.id_salon = sst.id_salon
+    INNER JOIN service_type st ON sst.id_service_type = st.id_service_type
     INNER JOIN city c ON s.id_city = c.id_city
-    WHERE srv.name LIKE ? AND c.id_city = ?
+    INNER JOIN province p ON c.id_province = p.id_province
+    WHERE st.name LIKE ? AND (c.id_city = ? OR p.name LIKE ?)
   `;
     // Iniciar la transacción
     db_1.default.beginTransaction((err) => {
@@ -225,7 +228,7 @@ router.get("/searchSalonByService", (req, res) => {
             return res.status(500).send("Error en el servidor.");
         }
         // Ejecutar la consulta
-        db_1.default.query(query, [`%${name}%`, id_city], (err, results) => {
+        db_1.default.query(query, [`%${name}%`, id_city, `%${province_name}%`], (err, results) => {
             if (err) {
                 console.error("Error ejecutando la consulta:", err);
                 // Si hay un error, hacer un rollback
@@ -243,6 +246,7 @@ router.get("/searchSalonByService", (req, res) => {
                 }
                 // Enviar los resultados si el commit es exitoso
                 res.json(results);
+                console.log('Resultados devueltos:', results);
             });
         });
     });

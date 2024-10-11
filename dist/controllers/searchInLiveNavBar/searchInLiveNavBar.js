@@ -73,7 +73,7 @@ router.get("/searchService", (req, res) => __awaiter(void 0, void 0, void 0, fun
                 resolve(undefined);
             });
         });
-        const query = "SELECT DISTINCT name FROM service WHERE name LIKE ?";
+        const query = "SELECT DISTINCT name FROM service_type WHERE name LIKE ?";
         db_1.default.query(query, [`%${name}%`], (error, results) => {
             if (error) {
                 console.error("Error al buscar el servicio:", error);

@@ -33,7 +33,7 @@ const upload = multer({ storage: storage });
 
 
 router.get("/getProvinces", async (req: Request, res: Response) => {
-  const query = `SELECT id_province, name FROM province`;
+  const query = `SELECT id_province, name FROM province ORDER BY name`;
 
   connection.query(query, (queryError, results: RowDataPacket[]) => {
     if (queryError) {
@@ -65,7 +65,8 @@ router.get("/getCitiesByProvince", async (req: Request, res: Response) => {
       JOIN 
         city c ON p.id_province = c.id_province
       WHERE 
-        p.id_province = ?;
+        p.id_province = ? 
+      ORDER BY c.name;
     `;
 
   connection.query(

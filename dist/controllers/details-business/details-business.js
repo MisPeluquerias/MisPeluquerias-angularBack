@@ -849,6 +849,7 @@ router.get("/getServicesSalon", (req, res) => __awaiter(void 0, void 0, void 0, 
         sst.id_service_type,
         st.name AS service_type_name,
         sst.time,
+        sst.price,
         sst.active
       FROM 
         salon_service_type sst
@@ -875,7 +876,7 @@ router.get("/getServicesSalon", (req, res) => __awaiter(void 0, void 0, void 0, 
             }
             // Asegúrate de que results es tratado como un arreglo de objetos
             const groupedServices = results.reduce((acc, service) => {
-                const { service_name, service_type_name, time } = service;
+                const { service_name, service_type_name, time, price } = service;
                 // Inicializa el array si el servicio no existe en el acumulador
                 if (!acc[service_name]) {
                     acc[service_name] = [];
@@ -884,6 +885,7 @@ router.get("/getServicesSalon", (req, res) => __awaiter(void 0, void 0, void 0, 
                 acc[service_name].push({
                     subservice: service_type_name,
                     time,
+                    price
                 });
                 return acc;
             }, {});
@@ -954,7 +956,6 @@ router.get("/getBrandsBySalon", (req, res) => {
                         });
                     });
                 }
-                // Si todo sale bien, devolver los resultados
                 res.json(results);
             });
         });
