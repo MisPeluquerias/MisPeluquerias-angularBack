@@ -4,7 +4,7 @@ import connection from "../../db/db";
 const bodyParser = require("body-parser");
 router.use(bodyParser.json());
 import decodeToken from "../../functions/decodeToken";
-import { RowDataPacket } from 'mysql2';
+import { RowDataPacket } from "mysql2";
 
 router.get("/", async (req, res) => {
   try {
@@ -26,7 +26,8 @@ router.get("/", async (req, res) => {
 
     // Modificar la consulta para usar zip_code
     const query = `
-      SELECT state, longitud, latitud, name, address, image,phone,email,hours_old,url
+      SELECT state, longitud, latitud, name, address, image,phone,email,hours_old,url,
+      facebook_url,instagram_url,tiktok_url,youtube_url
       FROM salon
       WHERE id_salon = ? 
     `;
@@ -55,7 +56,6 @@ router.get("/", async (req, res) => {
     res.status(500).json({ error: "Error al buscar el servicio." });
   }
 });
-
 
 router.get("/loadReview", async (req, res) => {
   try {
@@ -503,8 +503,6 @@ router.post("/addReview", async (req, res) => {
   }
 });
 
-
-
 router.get("/getFaqs", async (req, res) => {
   try {
     const { id_salon } = req.query;
@@ -533,58 +531,67 @@ router.get("/getFaqs", async (req, res) => {
       WHERE id_salon = ?
     `;
 
-    connection.query(countQuery, [id_salon], (error, countResult: RowDataPacket[]) => {
-      if (error) {
-        console.error("Error al contar las preguntas:", error);
-        return connection.rollback(() => {
-          res.status(500).json({ error: "Error al contar las preguntas." });
-        });
-      }
+    connection.query(
+      countQuery,
+      [id_salon],
+      (error, countResult: RowDataPacket[]) => {
+        if (error) {
+          console.error("Error al contar las preguntas:", error);
+          return connection.rollback(() => {
+            res.status(500).json({ error: "Error al contar las preguntas." });
+          });
+        }
 
-      const totalFaqs = (countResult[0] as { total: number }).total;
-      const totalPages = Math.ceil(totalFaqs / limit);
+        const totalFaqs = (countResult[0] as { total: number }).total;
+        const totalPages = Math.ceil(totalFaqs / limit);
 
-      // Ahora obtener los FAQs con paginación
-      const faqQuery = `
+        // Ahora obtener los FAQs con paginación
+        const faqQuery = `
         SELECT *
         FROM faq
         WHERE id_salon = ?
         LIMIT ? OFFSET ?
       `;
 
-      connection.query(faqQuery, [id_salon, limit, offset], (error, results: RowDataPacket[]) => {
-        if (error) {
-          console.error("Error al buscar las preguntas:", error);
-          return connection.rollback(() => {
-            res.status(500).json({ error: "Error al buscar las preguntas." });
-          });
-        }
+        connection.query(
+          faqQuery,
+          [id_salon, limit, offset],
+          (error, results: RowDataPacket[]) => {
+            if (error) {
+              console.error("Error al buscar las preguntas:", error);
+              return connection.rollback(() => {
+                res
+                  .status(500)
+                  .json({ error: "Error al buscar las preguntas." });
+              });
+            }
 
-        // Hacer commit de la transacción
-        connection.commit((err) => {
-          if (err) {
-            console.error("Error al hacer commit:", err);
-            return connection.rollback(() => {
-              res.status(500).json({ error: "Error al hacer commit." });
+            // Hacer commit de la transacción
+            connection.commit((err) => {
+              if (err) {
+                console.error("Error al hacer commit:", err);
+                return connection.rollback(() => {
+                  res.status(500).json({ error: "Error al hacer commit." });
+                });
+              }
+
+              // Respuesta con los FAQs paginados y la información adicional
+              res.json({
+                currentPage: page,
+                totalPages: totalPages,
+                totalFaqs: totalFaqs,
+                faqs: results,
+              });
             });
           }
-
-          // Respuesta con los FAQs paginados y la información adicional
-          res.json({
-            currentPage: page,
-            totalPages: totalPages,
-            totalFaqs: totalFaqs,
-            faqs: results,
-          });
-        });
-      });
-    });
+        );
+      }
+    );
   } catch (err) {
     console.error("Error al buscar las preguntas:", err);
     res.status(500).json({ error: "Error al buscar las preguntas." });
   }
 });
-
 
 router.get("/getDescriptionSalon", async (req, res) => {
   try {
@@ -774,8 +781,6 @@ router.post("/updateReview", async (req, res) => {
   }
 });
 
-
-
 router.post("/addFaq", async (req, res) => {
   try {
     const { id_user, id_salon, question } = req.body;
@@ -886,8 +891,6 @@ router.post("/updateQuestion", async (req, res) => {
   }
 });
 
-
-
 // Endpoint para eliminar preguntas
 router.post("/deleteQuestion", async (req, res) => {
   try {
@@ -983,11 +986,9 @@ router.get("/getServicesSalon", async (req, res) => {
           error
         );
         return connection.rollback(() => {
-          res
-            .status(500)
-            .json({
-              error: "Error al cargar los servicios y tipos de servicios.",
-            });
+          res.status(500).json({
+            error: "Error al cargar los servicios y tipos de servicios.",
+          });
         });
       }
 
@@ -1004,7 +1005,7 @@ router.get("/getServicesSalon", async (req, res) => {
         acc[service_name].push({
           subservice: service_type_name,
           time,
-          price
+          price,
         });
 
         return acc;
@@ -1032,9 +1033,6 @@ router.get("/getServicesSalon", async (req, res) => {
       .json({ error: "Error al cargar los servicios y tipos de servicios." });
   }
 });
-
-
-
 
 router.get("/getBrandsBySalon", (req, res) => {
   const id_salon = req.query.id_salon;
@@ -1090,6 +1088,101 @@ router.get("/getBrandsBySalon", (req, res) => {
       });
     });
   });
+});
+
+router.get("/searchFaqs", async (req, res) => {
+  try {
+    let { id_salon, searchText, page = "1", limit = "4" } = req.query;
+
+    // Convertir page y limit a números de forma segura
+    const pageAsNumber = parseInt(page as string, 10) || 1; // Si no es un número, asignar 1 por defecto
+    const limitAsNumber = parseInt(limit as string, 10) || 4; // Si no es un número, asignar 4 por defecto
+
+    const offset = (pageAsNumber - 1) * limitAsNumber; // Calcular el desplazamiento
+
+    if (!id_salon) {
+      return res
+        .status(400)
+        .json({ error: "El parámetro 'id_salon' es requerido." });
+    }
+
+    if (!searchText) {
+      return res
+        .status(400)
+        .json({ error: "El parámetro 'searchText' es requerido." });
+    }
+
+    // Iniciar la transacción
+    await new Promise((resolve, reject) => {
+      connection.beginTransaction((err) => {
+        if (err) return reject(err);
+        resolve(undefined);
+      });
+    });
+
+    // Consulta para contar el total de FAQs que coinciden con el texto de búsqueda
+    const countQuery = `
+      SELECT COUNT(*) AS total
+      FROM faq
+      WHERE id_salon = ? AND (question LIKE ? OR answer LIKE ?)
+    `;
+
+    const searchTerm = `%${searchText}%`;
+
+    const countResult: any = await new Promise((resolve, reject) => {
+      connection.query(countQuery, [id_salon, searchTerm, searchTerm], (error, results) => {
+        if (error) {
+          return reject(error);
+        }
+        resolve(results);
+      });
+    });
+
+    const totalFaqs = countResult[0].total;
+    const totalPages = Math.ceil(totalFaqs / limitAsNumber);
+
+    // Consulta para obtener los FAQs que coinciden con el texto de búsqueda con paginación
+    const faqQuery = `
+      SELECT *
+      FROM faq
+      WHERE id_salon = ? 
+      AND (question LIKE ? OR answer LIKE ?)
+      LIMIT ? OFFSET ?
+    `;
+
+    connection.query(
+      faqQuery,
+      [id_salon, searchTerm, searchTerm, limitAsNumber, offset],
+      (error, results) => {
+        if (error) {
+          console.error("Error al buscar las preguntas:", error);
+          return connection.rollback(() => {
+            res.status(500).json({ error: "Error al buscar las preguntas." });
+          });
+        }
+
+        connection.commit((err) => {
+          if (err) {
+            console.error("Error al hacer commit:", err);
+            return connection.rollback(() => {
+              res.status(500).json({ error: "Error al hacer commit." });
+            });
+          }
+
+          // Responder con los resultados y la información de paginación
+          res.json({
+            currentPage: pageAsNumber,
+            totalPages: totalPages,
+            totalFaqs: totalFaqs,
+            faqs: results,
+          });
+        });
+      }
+    );
+  } catch (err) {
+    console.error("Error al buscar las preguntas:", err);
+    res.status(500).json({ error: "Error al buscar las preguntas." });
+  }
 });
 
 

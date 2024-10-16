@@ -15,35 +15,79 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const db_1 = __importDefault(require("../../db/db"));
 const router = express_1.default.Router();
-router.post('/newContactProffesional', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { name, email, phone, msg, state = 'Pendiente', term_cond } = req.body;
+router.post("/newContactProffesional", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { name, email, phone, msg, salon_name, id_province, id_city, address, state = "Pendiente", term_cond, } = req.body;
     // Usando una transacción con una conexión existente
     db_1.default.beginTransaction((err) => {
         if (err) {
-            return res.status(500).json({ error: 'Error al iniciar la transacción' });
+            return res.status(500).json({ error: "Error al iniciar la transacción" });
         }
         db_1.default.query(`
-      INSERT INTO contact_proffesional (name, email, phone, text, state, terms_condition, created_at)
-      VALUES (?, ?, ?, ?, ?,?, NOW());
-      `, [name, email, phone, msg, state, term_cond], (err, results) => {
+      INSERT INTO contact_proffesional (name, email, phone, text,salon_name,id_province,id_city,address, state, terms_condition, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW());
+      `, [name, email, phone, msg, salon_name, id_province, id_city, address, state, term_cond], (err, results) => {
             if (err) {
                 return db_1.default.rollback(() => {
-                    res.status(500).json({ error: 'Error al insertar el contacto' });
+                    res.status(500).json({ error: "Error al insertar el contacto" });
                 });
             }
             // Si todo está bien, confirmar la transacción
             db_1.default.commit((err) => {
                 if (err) {
                     return db_1.default.rollback(() => {
-                        res.status(500).json({ error: 'Error al confirmar la transacción' });
+                        res
+                            .status(500)
+                            .json({ error: "Error al confirmar la transacción" });
                     });
                 }
                 res.status(201).json({
-                    message: 'Contacto añadido exitosamente',
+                    message: "Contacto añadido exitosamente",
                     contactId: results.insertId,
                 });
             });
         });
+    });
+}));
+router.get("/getCitiesByProvince", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const id_province = req.query.id_province;
+    if (!id_province) {
+        return res.status(400).json({ error: "id_province is required" });
+    }
+    const query = `
+      SELECT 
+        p.name as province_name,
+        c.id_city,
+        c.name as city_name,
+        c.zip_code
+      FROM 
+        province p
+      JOIN 
+        city c ON p.id_province = c.id_province
+      WHERE 
+        p.id_province = ? 
+      ORDER BY c.name;
+    `;
+    //desde git
+    db_1.default.query(query, [id_province], (queryError, results) => {
+        if (queryError) {
+            console.error("Error fetching cities and province:", queryError);
+            return res.status(500).json({
+                error: "An error occurred while fetching the city and province data",
+            });
+        }
+        res.json({ data: results });
+    });
+}));
+router.get("/getProvinces", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const query = `SELECT id_province, name FROM province ORDER BY name`;
+    db_1.default.query(query, (queryError, results) => {
+        if (queryError) {
+            console.error("Error fetching provinces:", queryError);
+            return res
+                .status(500)
+                .json({ error: "An error occurred while fetching the provinces" });
+        }
+        res.json({ data: results });
     });
 }));
 exports.default = router;

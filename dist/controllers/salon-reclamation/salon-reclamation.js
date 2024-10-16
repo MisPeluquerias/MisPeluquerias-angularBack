@@ -66,6 +66,7 @@ router.get("/getCitiesByProvince", (req, res) => __awaiter(void 0, void 0, void 
         p.id_province = ? 
       ORDER BY c.name;
     `;
+    //desde git
     db_1.default.query(query, [id_province], (queryError, results) => {
         if (queryError) {
             console.error("Error fetching cities and province:", queryError);
@@ -223,6 +224,51 @@ router.get("/searchSalon", (req, res) => __awaiter(void 0, void 0, void 0, funct
     catch (err) {
         console.error("Error al buscar el salón:", err);
         res.status(500).json({ error: "Error al buscar el salón." });
+    }
+}));
+router.get("/getSalonById", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { id_salon } = req.query;
+        if (!id_salon) {
+            return res
+                .status(400)
+                .json({ error: "El parámetro 'id' es requerido." });
+        }
+        // Iniciar la transacción
+        yield new Promise((resolve, reject) => {
+            db_1.default.beginTransaction((err) => {
+                if (err)
+                    return reject(err);
+                resolve(undefined);
+            });
+        });
+        const query = `
+    SELECT s.name, s.id_city, s.address, c.id_province
+    FROM salon s
+    INNER JOIN city c ON s.id_city = c.id_city
+    WHERE s.id_salon = ?
+  `;
+        db_1.default.query(query, [id_salon], (error, results) => {
+            if (error) {
+                console.error("Error al buscar el servicio:", error);
+                return db_1.default.rollback(() => {
+                    res.status(500).json({ error: "Error al buscar el servicio." });
+                });
+            }
+            db_1.default.commit((err) => {
+                if (err) {
+                    console.error("Error al hacer commit:", err);
+                    return db_1.default.rollback(() => {
+                        res.status(500).json({ error: "Error al buscar el servicio." });
+                    });
+                }
+                res.json(results);
+            });
+        });
+    }
+    catch (err) {
+        console.error("Error al buscar el servicio:", err);
+        res.status(500).json({ error: "Error al buscar el servicio." });
     }
 }));
 exports.default = router;

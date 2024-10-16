@@ -277,6 +277,57 @@ router.get("/searchSalon", async (req, res) => {
 });
   
 
+router.get("/getSalonById", async (req, res) => {
+  try {
+    const { id_salon } = req.query;
+
+    if (!id_salon) {
+      return res
+        .status(400)
+        .json({ error: "El parámetro 'id' es requerido." });
+    }
+
+    // Iniciar la transacción
+    await new Promise((resolve, reject) => {
+      connection.beginTransaction((err) => {
+        if (err) return reject(err);
+        resolve(undefined);
+      });
+    });
+
+    
+    const query = `
+    SELECT s.name, s.id_city, s.address, c.id_province
+    FROM salon s
+    INNER JOIN city c ON s.id_city = c.id_city
+    WHERE s.id_salon = ?
+  `;
+
+    connection.query(query, [id_salon], (error, results) => {
+      if (error) {
+        console.error("Error al buscar el servicio:", error);
+        return connection.rollback(() => {
+          res.status(500).json({ error: "Error al buscar el servicio." });
+        });
+      }
+
+      connection.commit((err) => {
+        if (err) {
+          console.error("Error al hacer commit:", err);
+          return connection.rollback(() => {
+            res.status(500).json({ error: "Error al buscar el servicio." });
+          });
+        }
+
+        res.json(results);
+      });
+    });
+  } catch (err) {
+    console.error("Error al buscar el servicio:", err);
+    res.status(500).json({ error: "Error al buscar el servicio." });
+  }
+});
+
 
 
 
