@@ -331,4 +331,102 @@ router.get("/getSalonById", async (req, res) => {
 
 
 
+router.post('/delete', async (req, res) => {
+  const { id_salon_reclamacion } = req.body;
+  console.log('id_salon_reclamacion recibida: ', id_salon_reclamacion);
+
+  if (!id_salon_reclamacion || !Array.isArray(id_salon_reclamacion) || id_salon_reclamacion.length === 0) {
+    return res.status(400).json({ message: 'No hay reclamaciones para eliminar' });
+  }
+
+  try {
+    // Iniciar la transacción
+    await new Promise<void>((resolve, reject) => {
+      connection.beginTransaction((err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+
+    // Obtener las reclamaciones para eliminar los archivos asociados
+    const selectReclamationsQuery = `
+      SELECT dnifront_path, dniback_path, file_path, invoice_path 
+      FROM salon_reclamacion 
+      WHERE id_salon_reclamacion IN (${id_salon_reclamacion.map(() => '?').join(',')})
+    `;
+
+    const reclamations = await new Promise<RowDataPacket[]>((resolve, reject) => {
+      connection.query(selectReclamationsQuery, id_salon_reclamacion, (err, results) => {
+        if (err) return reject(err);
+
+        if (Array.isArray(results)) {
+          resolve(results as RowDataPacket[]);
+        } else {
+          reject(new Error('Resultados no válidos al obtener las reclamaciones.'));
+        }
+      });
+    });
+
+    // Eliminar los archivos si existen
+    reclamations.forEach(reclamation => {
+      const paths = [
+        reclamation.dnifront_path,
+        reclamation.dniback_path,
+        reclamation.file_path,
+        reclamation.invoice_path
+      ];
+
+      paths.forEach(filePath => {
+        if (filePath) {
+          // Usar uploadDir para asegurar que las rutas coincidan
+          const fullPath = path.join(uploadDir, path.basename(filePath));
+          console.log(fullPath);
+          fs.unlink(fullPath, (err) => {
+            if (err) {
+              console.error(`Error al eliminar el archivo: ${fullPath}`, err);
+            } else {
+              console.log(`Archivo eliminado: ${fullPath}`);
+            }
+          });
+        }
+      });
+    });
+
+    // Eliminar las reclamaciones
+    const deleteReclamationsSql = `
+      DELETE FROM salon_reclamacion 
+      WHERE id_salon_reclamacion IN (${id_salon_reclamacion.map(() => '?').join(',')})
+    `;
+    
+    await new Promise<void>((resolve, reject) => {
+      connection.query(deleteReclamationsSql, id_salon_reclamacion, (err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+
+    // Commit de la transacción si todo va bien
+    await new Promise<void>((resolve, reject) => {
+      connection.commit((err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+
+    // Responder al cliente
+    res.json({ message: 'Reclamaciones e imágenes eliminadas correctamente' });
+
+  } catch (error) {
+    console.error('Error al eliminar las reclamaciones o las imágenes:', error);
+
+    // Si algo falla, hacer rollback de la transacción
+    connection.rollback(() => {
+      res.status(500).json({ message: 'Error al eliminar las reclamaciones o las imágenes' });
+    });
+  }
+});
+
+
+
+
 export default router;
