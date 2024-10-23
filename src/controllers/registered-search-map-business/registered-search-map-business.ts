@@ -3,6 +3,7 @@ const router = express.Router();
 import connection from "../../db/db";
 const bodyParser = require("body-parser");
 router.use(bodyParser.json());
+import verifyToken from "../../token/token";
 
 
 
@@ -10,7 +11,7 @@ router.use(bodyParser.json());
 
 
 
-router.get("/chargeMarkersAndCard", async (req, res) => {
+router.get("/chargeMarkersAndCard",verifyToken, async (req, res) => {
   try {
       const { northEastLat, northEastLng, southWestLat, southWestLng } = req.query;
 

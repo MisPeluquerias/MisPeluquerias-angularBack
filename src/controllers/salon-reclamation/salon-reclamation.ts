@@ -7,6 +7,8 @@ import decodeToken from "../../functions/decodeToken";
 import multer from "multer";
 import path from "path";
 import fs from 'fs';
+import { verify } from "jsonwebtoken";
+import verifyToken from "../../token/token";
 
 
 
@@ -84,7 +86,7 @@ router.get("/getCitiesByProvince", async (req: Request, res: Response) => {
   );
 });
 
-router.get("/getUserData", async (req: Request, res: Response) => {
+router.get("/getUserData",async (req: Request, res: Response) => {
   try {
     // Extraer el id_user de la consulta
     const id_user = req.query.id_user as string;
@@ -134,7 +136,7 @@ router.get("/getUserData", async (req: Request, res: Response) => {
 
 
 
-router.post("/newReclamation", upload.fields([
+router.post("/newReclamation", verifyToken, upload.fields([
   { name: 'dni_front', maxCount: 1 },
   { name: 'dni_back', maxCount: 1 },
   { name: 'file_path', maxCount: 1 },
@@ -231,7 +233,7 @@ router.post("/newReclamation", upload.fields([
 
 
 
-router.get("/searchSalon", async (req, res) => {
+router.get("/searchSalon",verifyToken, async (req, res) => {
   try {
     const { name } = req.query;
 

@@ -16,10 +16,11 @@ const express_1 = __importDefault(require("express"));
 const db_1 = __importDefault(require("../../db/db")); // Ajusta esta ruta según tu estructura de directorios
 const body_parser_1 = __importDefault(require("body-parser"));
 const decodeToken_1 = __importDefault(require("../../functions/decodeToken")); // Asegúrate de que esta función está correctamente exportada
+const token_1 = __importDefault(require("../../token/token"));
 const router = express_1.default.Router();
 router.use(body_parser_1.default.json());
 // Endpoint para añadir un favorito
-router.post('/add', (req, res) => {
+router.post('/add', token_1.default, (req, res) => {
     const { id_user, id_salon } = req.body;
     if (!id_user || !id_salon) {
         return res.status(400).json({ error: 'id_user and id_salon are required' });
@@ -61,7 +62,7 @@ router.post('/add', (req, res) => {
     });
 });
 // Endpoint para eliminar un favorito
-router.delete('/delete/:id_user_favorite', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.delete('/delete/:id_user_favorite', token_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id_user_favorite } = req.params;
     if (!id_user_favorite) {
         return res.status(400).json({ error: 'id_user_favorite parameter is required' });
@@ -99,7 +100,7 @@ router.delete('/delete/:id_user_favorite', (req, res) => __awaiter(void 0, void 
         });
     });
 }));
-router.get('/get', (req, res) => {
+router.get('/get', token_1.default, (req, res) => {
     const { id_user } = req.query; // Aquí debes usar req.query
     if (!id_user) {
         return res.status(400).json({ error: 'id_user is required' });

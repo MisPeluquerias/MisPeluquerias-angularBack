@@ -19,6 +19,7 @@ const decodeToken_1 = __importDefault(require("../../functions/decodeToken"));
 const multer_1 = __importDefault(require("multer"));
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
+const token_1 = __importDefault(require("../../token/token"));
 const router = express_1.default.Router();
 router.use(body_parser_1.default.json());
 const uploadDir = path_1.default.join(__dirname, '../../../dist/uploads-reclamation');
@@ -116,7 +117,7 @@ router.get("/getUserData", (req, res) => __awaiter(void 0, void 0, void 0, funct
             .json({ error: "An error occurred while fetching user data" });
     }
 }));
-router.post("/newReclamation", upload.fields([
+router.post("/newReclamation", token_1.default, upload.fields([
     { name: 'dni_front', maxCount: 1 },
     { name: 'dni_back', maxCount: 1 },
     { name: 'file_path', maxCount: 1 },
@@ -186,7 +187,7 @@ router.post("/newReclamation", upload.fields([
         });
     });
 });
-router.get("/searchSalon", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.get("/searchSalon", token_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { name } = req.query;
         if (!name) {

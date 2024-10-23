@@ -9,6 +9,8 @@ import { OkPacket } from 'mysql2'; // Importa OkPacket
 import multer from 'multer';
 import path  from 'path';
 import fs from 'fs';
+import verifyToken from '../../token/token';
+
 
 const router = express.Router();
 router.use(bodyParser.json());
@@ -29,7 +31,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // Ruta para manejar la carga de la foto de perfil
-router.put('/uploadProfilePicture/:id_user', upload.single('profilePicture'), async (req, res) => {
+router.put('/uploadProfilePicture/:id_user',verifyToken, upload.single('profilePicture'), async (req, res) => {
   const { id_user } = req.params;
 
   if (!id_user) {
@@ -76,7 +78,7 @@ router.put('/uploadProfilePicture/:id_user', upload.single('profilePicture'), as
 
 
 
-router.get('/getDataUser', async (req, res) => {
+router.get('/getDataUser',verifyToken, async (req, res) => {
   const { id_user } = req.query;
 
   // Validar que id_user esté presente
@@ -134,7 +136,7 @@ router.get('/getDataUser', async (req, res) => {
   });
 });
 
-router.get("/getCitiesByProvince", async (req: Request, res: Response) => {
+router.get("/getCitiesByProvince",verifyToken, async (req: Request, res: Response) => {
   const id_province = req.query.id_province;
 
   if (!id_province) {
@@ -171,7 +173,7 @@ router.get("/getCitiesByProvince", async (req: Request, res: Response) => {
   );
 });
 
-router.get("/getProvincesForProfile", async (req: Request, res: Response) => {
+router.get("/getProvincesForProfile",verifyToken, async (req: Request, res: Response) => {
   
   const query = `SELECT id_province, name FROM province`;
 
@@ -189,7 +191,7 @@ router.get("/getProvincesForProfile", async (req: Request, res: Response) => {
 
 
 
-router.get("/getCitiesByProvinceForProfile", async (req: Request, res: Response) => {
+router.get("/getCitiesByProvinceForProfile",verifyToken, async (req: Request, res: Response) => {
   const id_province = req.query.id_province;
 
   if (!id_province) {
@@ -230,7 +232,7 @@ router.get("/getCitiesByProvinceForProfile", async (req: Request, res: Response)
   );
 });
 
-router.put('/updateUser', async (req: Request, res: Response) => {
+router.put('/updateUser',verifyToken, async (req: Request, res: Response) => {
   const { id_user, name, lastname, email, phone, address, id_city, id_province, permiso } = req.body;
 
   // Validar que id_user esté presente
@@ -319,7 +321,7 @@ router.put('/updateUser', async (req: Request, res: Response) => {
 });
 
 
-router.put('/updateUserPassword', async (req, res) => {
+router.put('/updateUserPassword',verifyToken, async (req, res) => {
   const { id_user, password } = req.body;
 
 
@@ -373,7 +375,7 @@ router.put('/updateUserPassword', async (req, res) => {
   });
 });
 
-router.patch('/desactivateAccount/:id_user', async (req: Request, res: Response) => {
+router.patch('/desactivateAccount/:id_user',verifyToken, async (req: Request, res: Response) => {
   const { id_user } = req.params;
 
   // Validar que id_user esté presente

@@ -20,6 +20,7 @@ const bcrypt_1 = __importDefault(require("bcrypt"));
 const multer_1 = __importDefault(require("multer"));
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
+const token_1 = __importDefault(require("../../token/token"));
 const router = express_1.default.Router();
 router.use(body_parser_1.default.json());
 const storage = multer_1.default.diskStorage({
@@ -35,7 +36,7 @@ const storage = multer_1.default.diskStorage({
 });
 const upload = (0, multer_1.default)({ storage: storage });
 // Ruta para manejar la carga de la foto de perfil
-router.put('/uploadProfilePicture/:id_user', upload.single('profilePicture'), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.put('/uploadProfilePicture/:id_user', token_1.default, upload.single('profilePicture'), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id_user } = req.params;
     if (!id_user) {
         return res.status(400).json({ error: 'id_user is required' });
@@ -75,7 +76,7 @@ router.put('/uploadProfilePicture/:id_user', upload.single('profilePicture'), (r
         res.status(500).json({ success: false, message: 'Error durante la carga de la imagen', error: err });
     }
 }));
-router.get('/getDataUser', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.get('/getDataUser', token_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id_user } = req.query;
     // Validar que id_user esté presente
     if (!id_user) {
@@ -128,7 +129,7 @@ router.get('/getDataUser', (req, res) => __awaiter(void 0, void 0, void 0, funct
         });
     });
 }));
-router.get("/getCitiesByProvince", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.get("/getCitiesByProvince", token_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const id_province = req.query.id_province;
     if (!id_province) {
         return res.status(400).json({ error: "id_province is required" });
@@ -156,7 +157,7 @@ router.get("/getCitiesByProvince", (req, res) => __awaiter(void 0, void 0, void 
         res.json({ data: results });
     });
 }));
-router.get("/getProvincesForProfile", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.get("/getProvincesForProfile", token_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const query = `SELECT id_province, name FROM province`;
     db_1.default.query(query, (queryError, results) => {
         if (queryError) {
@@ -168,7 +169,7 @@ router.get("/getProvincesForProfile", (req, res) => __awaiter(void 0, void 0, vo
         res.json({ data: results });
     });
 }));
-router.get("/getCitiesByProvinceForProfile", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.get("/getCitiesByProvinceForProfile", token_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const id_province = req.query.id_province;
     if (!id_province) {
         return res.status(400).json({ error: "id_province is required" });
@@ -197,7 +198,7 @@ router.get("/getCitiesByProvinceForProfile", (req, res) => __awaiter(void 0, voi
         res.json({ data: results });
     });
 }));
-router.put('/updateUser', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.put('/updateUser', token_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id_user, name, lastname, email, phone, address, id_city, id_province, permiso } = req.body;
     // Validar que id_user esté presente
     if (!id_user) {
@@ -277,7 +278,7 @@ router.put('/updateUser', (req, res) => __awaiter(void 0, void 0, void 0, functi
         });
     });
 }));
-router.put('/updateUserPassword', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.put('/updateUserPassword', token_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id_user, password } = req.body;
     // Iniciar la transacción
     db_1.default.beginTransaction((err) => __awaiter(void 0, void 0, void 0, function* () {
@@ -323,7 +324,7 @@ router.put('/updateUserPassword', (req, res) => __awaiter(void 0, void 0, void 0
         }
     }));
 }));
-router.patch('/desactivateAccount/:id_user', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.patch('/desactivateAccount/:id_user', token_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id_user } = req.params;
     // Validar que id_user esté presente
     if (!id_user) {

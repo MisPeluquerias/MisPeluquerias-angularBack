@@ -17,7 +17,8 @@ const router = express_1.default.Router();
 const db_1 = __importDefault(require("../../db/db"));
 const bodyParser = require("body-parser");
 router.use(bodyParser.json());
-router.get("/chargeMarkersAndCard", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+const token_1 = __importDefault(require("../../token/token"));
+router.get("/chargeMarkersAndCard", token_1.default, (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { northEastLat, northEastLng, southWestLat, southWestLng } = req.query;
         // Iniciar la transacción

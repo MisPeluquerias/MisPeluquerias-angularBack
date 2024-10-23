@@ -16,7 +16,6 @@ const express_1 = __importDefault(require("express"));
 const db_1 = __importDefault(require("../../db/db"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const bcrypt_1 = __importDefault(require("bcrypt"));
-const saltRounds = 10;
 const router = express_1.default.Router();
 const SECRET_KEY = 'uN3!pK@9rV$4zF6&hS*8xM2+bC0^wQ1!';
 router.use(express_1.default.json());
@@ -37,9 +36,9 @@ router.post('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             //console.log('Coincidencia de contraseña:', match); // Debugging
             if (match) {
                 // Genera el token con el id_user
-                const token = jsonwebtoken_1.default.sign({ id: usuario.id_user }, SECRET_KEY, { expiresIn: '2h' });
-                const usuarioId = jsonwebtoken_1.default.sign({ usuarioId: usuario.id_user }, SECRET_KEY, { expiresIn: '2h' });
-                const permiso = jsonwebtoken_1.default.sign({ permiso: usuario.permiso }, SECRET_KEY, { expiresIn: '2h' });
+                const token = jsonwebtoken_1.default.sign({ id: usuario.id_user }, SECRET_KEY, { expiresIn: '1h' });
+                const usuarioId = jsonwebtoken_1.default.sign({ usuarioId: usuario.id_user }, SECRET_KEY, { expiresIn: '1h' });
+                const permiso = jsonwebtoken_1.default.sign({ permiso: usuario.permiso }, SECRET_KEY, { expiresIn: '1h' });
                 return res.json({ token, usuarioId, permiso });
             }
             else {

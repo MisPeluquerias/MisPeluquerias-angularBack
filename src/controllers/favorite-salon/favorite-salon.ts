@@ -4,12 +4,13 @@ import bodyParser from 'body-parser';
 import decodeToken from '../../functions/decodeToken'; // Asegúrate de que esta función está correctamente exportada
 import { OkPacket } from 'mysql2';
 import { Request, Response } from 'express';
+import verifyToken from '../../token/token';
 
 const router = express.Router();
 router.use(bodyParser.json());
 
 // Endpoint para añadir un favorito
-router.post('/add', (req: Request, res: Response) => {
+router.post('/add',verifyToken, (req: Request, res: Response) => {
     const { id_user, id_salon } = req.body;
 
     if (!id_user || !id_salon) {
@@ -57,7 +58,7 @@ router.post('/add', (req: Request, res: Response) => {
 });
 
 // Endpoint para eliminar un favorito
-router.delete('/delete/:id_user_favorite', async(req: Request, res: Response) => {
+router.delete('/delete/:id_user_favorite',verifyToken, async(req: Request, res: Response) => {
     const { id_user_favorite } = req.params;
 
     if (!id_user_favorite) {
@@ -102,7 +103,7 @@ router.delete('/delete/:id_user_favorite', async(req: Request, res: Response) =>
     });
 });
 
-router.get('/get', (req: Request, res: Response) => {
+router.get('/get',verifyToken, (req: Request, res: Response) => {
     const { id_user } = req.query; // Aquí debes usar req.query
 
     if (!id_user) {
