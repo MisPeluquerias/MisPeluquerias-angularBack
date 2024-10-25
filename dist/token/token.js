@@ -24,7 +24,7 @@ function verifyToken(req, res, next) {
         const secretKey = 'uN3!pK@9rV$4zF6&hS*8xM2+bC0^wQ1!'; // Usa tu clave secreta
         // Verificar el token con la clave secreta
         const verified = jsonwebtoken_1.default.verify(token, secretKey);
-        //console.log('Token verificado con éxito:', verified);
+        console.log('Token verificado con éxito:', verified);
         // Obtener el tiempo de expiración (exp) del token y el tiempo actual
         const currentTime = Math.floor(Date.now() / 1000); // Tiempo actual en segundos
         const exp = verified.exp; // La marca de tiempo 'exp' en segundos (Unix timestamp)
