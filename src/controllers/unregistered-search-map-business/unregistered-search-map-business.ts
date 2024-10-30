@@ -3,6 +3,7 @@ import connection from "../../db/db";
 import bodyParser from "body-parser";
 import { QueryError, RowDataPacket } from "mysql2";
 
+
 const router = express.Router();
 router.use(bodyParser.json());
 
@@ -26,7 +27,7 @@ router.get("/searchByCityById", async (req, res) => {
 
     // Consulta con INNER JOIN para obtener los salones de ciudades con el mismo nombre
     const query = `
-      SELECT s.id_salon, s.longitud, s.latitud, s.name, s.address, s.image
+      SELECT s.id_salon, s.longitud, s.latitud, s.name, s.address, s.image, s.hours_old
       FROM salon s
       INNER JOIN city c ON s.id_city = c.id_city
       WHERE c.name = (
@@ -44,6 +45,72 @@ router.get("/searchByCityById", async (req, res) => {
         });
       }
 
+
+      const rows = results as any[];
+
+      // Obtener el día y hora actuales
+      const currentDay = new Date().toLocaleString('es-ES', { weekday: 'long' });
+      const currentTime = new Date();
+
+      function isOpen(hoursOld: any, currentDay: any, currentTime: any) {
+        const daysOfWeek = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+    
+        // Verificar si `hoursOld`, `currentDay` o `currentTime` son nulos o indefinidos
+        if (!hoursOld || !currentDay || !currentTime) {
+            return false;
+        }
+    
+        // Convertir currentDay a índice numérico si se pasa como texto
+        const dayIndex = daysOfWeek.indexOf(currentDay.toLowerCase());
+    
+        // Validación del índice de currentDay
+        if (dayIndex === -1) return false;
+    
+        const currentDayFormatted = daysOfWeek[dayIndex];
+        const dayMap = new Map();
+        const days = hoursOld.split(';');
+    
+        days.forEach((dayEntry: any) => {
+            const [day, ...hoursArr] = dayEntry.split(':');
+            const hours = hoursArr.join(':').trim();
+            if (day && hours) {
+                dayMap.set(day.trim().toLowerCase(), hours);
+            }
+        });
+    
+        if (dayMap.has(currentDayFormatted)) {
+            const hours = dayMap.get(currentDayFormatted);
+            if (hours && hours !== 'Cerrado') {
+                const timeRanges = hours.split(',').map((range: any) => range.trim());
+    
+                for (const range of timeRanges) {
+                    const [aperturaStr, cierreStr] = range.split('-').map((time: any) => time && time.trim());
+                    if (aperturaStr && cierreStr) {
+                        const [aperturaHora, aperturaMin] = aperturaStr.split(':').map(Number);
+                        const [cierreHora, cierreMin] = cierreStr.split(':').map(Number);
+    
+                        const apertura = new Date(currentTime);
+                        apertura.setHours(aperturaHora, aperturaMin, 0);
+                        const cierre = new Date(currentTime);
+                        cierre.setHours(cierreHora, cierreMin, 0);
+    
+                        if (currentTime >= apertura && currentTime <= cierre) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    
+        return false; // Si no hay horarios o está cerrado
+    }
+      // Procesar los resultados para agregar el estado de apertura/cierre
+      const processedResults = rows.map((salon:any) => {
+        const is_open = isOpen(salon.hours_old, currentDay, currentTime);
+        return { ...salon, is_open };
+      });
+
+
       connection.commit((err) => {
         if (err) {
           console.error("Error al hacer commit:", err);
@@ -52,7 +119,7 @@ router.get("/searchByCityById", async (req, res) => {
           });
         }
 
-        res.json(results);
+        res.json(processedResults);
       });
     });
   } catch (err) {
@@ -83,7 +150,7 @@ router.get("/searchByCityAndCategory", async (req, res) => {
 
     // Consulta con INNER JOIN para obtener los salones en la ciudad específica y la categoría deseada
     const query = `
-      SELECT s.id_salon, s.longitud, s.latitud, s.name, s.address, s.image
+      SELECT s.id_salon, s.longitud, s.latitud, s.name, s.address, s.image, s.hours_old
       FROM salon s
       INNER JOIN city c ON s.id_city = c.id_city
       INNER JOIN categories cat ON s.id_salon = cat.id_salon
@@ -103,6 +170,70 @@ router.get("/searchByCityAndCategory", async (req, res) => {
         });
       }
 
+      const rows = results as any[];
+
+      // Obtener el día y hora actuales
+      const currentDay = new Date().toLocaleString('es-ES', { weekday: 'long' });
+      const currentTime = new Date();
+
+      function isOpen(hoursOld: any, currentDay: any, currentTime: any) {
+        const daysOfWeek = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+    
+        // Verificar si `hoursOld`, `currentDay` o `currentTime` son nulos o indefinidos
+        if (!hoursOld || !currentDay || !currentTime) {
+            return false;
+        }
+    
+        // Convertir currentDay a índice numérico si se pasa como texto
+        const dayIndex = daysOfWeek.indexOf(currentDay.toLowerCase());
+    
+        // Validación del índice de currentDay
+        if (dayIndex === -1) return false;
+    
+        const currentDayFormatted = daysOfWeek[dayIndex];
+        const dayMap = new Map();
+        const days = hoursOld.split(';');
+    
+        days.forEach((dayEntry: any) => {
+            const [day, ...hoursArr] = dayEntry.split(':');
+            const hours = hoursArr.join(':').trim();
+            if (day && hours) {
+                dayMap.set(day.trim().toLowerCase(), hours);
+            }
+        });
+    
+        if (dayMap.has(currentDayFormatted)) {
+            const hours = dayMap.get(currentDayFormatted);
+            if (hours && hours !== 'Cerrado') {
+                const timeRanges = hours.split(',').map((range: any) => range.trim());
+    
+                for (const range of timeRanges) {
+                    const [aperturaStr, cierreStr] = range.split('-').map((time: any) => time && time.trim());
+                    if (aperturaStr && cierreStr) {
+                        const [aperturaHora, aperturaMin] = aperturaStr.split(':').map(Number);
+                        const [cierreHora, cierreMin] = cierreStr.split(':').map(Number);
+    
+                        const apertura = new Date(currentTime);
+                        apertura.setHours(aperturaHora, aperturaMin, 0);
+                        const cierre = new Date(currentTime);
+                        cierre.setHours(cierreHora, cierreMin, 0);
+    
+                        if (currentTime >= apertura && currentTime <= cierre) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    
+        return false; // Si no hay horarios o está cerrado
+    }
+      // Procesar los resultados para agregar el estado de apertura/cierre
+      const processedResults = rows.map((salon:any) => {
+        const is_open = isOpen(salon.hours_old, currentDay, currentTime);
+        return { ...salon, is_open };
+      });
+
       connection.commit((err) => {
         if (err) {
           console.error("Error al hacer commit:", err);
@@ -110,7 +241,7 @@ router.get("/searchByCityAndCategory", async (req, res) => {
             res.status(500).json({ error: "Error al hacer commit." });
           });
         }
-        res.json(results);
+        res.json(processedResults);
       });
     });
   } catch (err) {
@@ -127,9 +258,7 @@ router.get("/searchByCityName", async (req, res) => {
     const { name } = req.query;
 
     if (!name) {
-      return res
-        .status(400)
-        .json({ error: "El parámetro 'name' es requerido." });
+      return res.status(400).json({ error: "El parámetro 'name' es requerido." });
     }
 
     // Iniciar la transacción
@@ -139,16 +268,18 @@ router.get("/searchByCityName", async (req, res) => {
         resolve(undefined);
       });
     });
+
     const getSalonsQuery = `
-      SELECT s.id_salon, s.longitud, s.latitud, s.name, s.address, s.image
+      SELECT s.id_salon, s.longitud, s.latitud, s.name, s.address, s.image, s.hours_old
       FROM salon s
       INNER JOIN city ON s.id_city = city.id_city
       INNER JOIN province ON city.id_province = province.id_province
       WHERE province.name = ?
       AND s.longitud IS NOT NULL
-      AND s.latitud IS NOT NULL`;
+      AND s.latitud IS NOT NULL
+    `;
 
-    connection.query(getSalonsQuery, [name], (error, salonResults: any[]) => {
+    connection.query(getSalonsQuery, [name], (error, results) => {
       if (error) {
         console.error("Error al buscar los salones:", error);
         return connection.rollback(() => {
@@ -156,13 +287,80 @@ router.get("/searchByCityName", async (req, res) => {
         });
       }
 
-      if (!Array.isArray(salonResults) || salonResults.length === 0) {
-        return res
-          .status(404)
-          .json({
-            error: "No se encontraron salones en la provincia proporcionada.",
-          });
+      if (!Array.isArray(results) || results.length === 0) {
+        return res.status(404).json({
+          error: "No se encontraron salones en la provincia proporcionada.",
+        });
       }
+
+      // Aseguramos que `results` es de tipo RowDataPacket[]
+      const rows = results as RowDataPacket[];
+
+      // Obtener el día y hora actuales
+      const currentDay = new Date().toLocaleString("es-ES", { weekday: "long" });
+      const currentTime = new Date();
+
+      // Función isOpen para verificar si un salón está abierto
+      function isOpen(hoursOld: any, currentDay: any, currentTime: any) {
+        const daysOfWeek = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
+
+        // Verificar si `hoursOld` es nulo o vacío
+        if (!hoursOld) {
+          return false;
+        }
+
+        // Convertir `currentDay` a índice numérico si se pasa como texto
+        const dayIndex = daysOfWeek.indexOf(currentDay.toLowerCase());
+
+        // Validación del índice de `currentDay`
+        if (dayIndex === -1) return false;
+
+        const currentDayFormatted = daysOfWeek[dayIndex];
+        const dayMap = new Map();
+        const days = hoursOld.split(";"); // Separar los días por `;`
+
+        days.forEach((dayEntry: any) => {
+          const [day, ...hoursArr] = dayEntry.split(":"); // Separar el día de las horas
+          const hours = hoursArr.join(":").trim(); // Volver a unir y limpiar las horas
+          if (day && hours) {
+            dayMap.set(day.trim().toLowerCase(), hours); // Guardar el día y las horas correctamente
+          }
+        });
+
+        // Verificar si el horario está disponible para el día actual
+        if (dayMap.has(currentDayFormatted)) {
+          const hours = dayMap.get(currentDayFormatted);
+          if (hours && hours !== "Cerrado" && hours.trim() !== "") {
+            const timeRanges = hours.split(",").map((range: any) => range.trim());
+            for (const range of timeRanges) {
+              const [aperturaStr, cierreStr] = range.split("-").map((time: any) => time && time.trim());
+              if (aperturaStr && cierreStr) {
+                const [aperturaHora, aperturaMin] = aperturaStr.split(":").map(Number);
+                const [cierreHora, cierreMin] = cierreStr.split(":").map(Number);
+
+                const apertura = new Date(currentTime);
+                apertura.setHours(aperturaHora, aperturaMin, 0);
+
+                const cierre = new Date(currentTime);
+                cierre.setHours(cierreHora, cierreMin, 0);
+
+                if (currentTime >= apertura && currentTime <= cierre) {
+                  return true;
+                }
+              }
+            }
+          }
+        }
+
+        return false; // Si no hay horarios o está cerrado
+      }
+
+      // Procesar los resultados para agregar el estado de apertura/cierre
+      const processedResults = rows.map((salon) => {
+        const is_open = isOpen(salon.hours_old, currentDay, currentTime);
+        return { ...salon, is_open };
+      });
+
       connection.commit((err) => {
         if (err) {
           console.error("Error al hacer commit:", err);
@@ -170,9 +368,7 @@ router.get("/searchByCityName", async (req, res) => {
             res.status(500).json({ error: "Error al hacer commit." });
           });
         }
-        res.json({
-          salons: salonResults
-        });
+        res.json({ salons: processedResults }); // Enviar los resultados procesados con `is_open`
       });
     });
   } catch (err) {
@@ -233,7 +429,7 @@ router.get("/searchSalonByService", (req, res) => {
   console.log('Id de la ciudad:', id_city, 'Nombre del subservicio:', name, 'Nombre de la provincia:', province_name);
   
   const query = `
-    SELECT s.id_salon, s.name, s.latitud, s.longitud, s.address, s.image, c.name AS city_name, st.name AS subservice_name, p.name AS province_name
+    SELECT s.id_salon, s.name, s.latitud, s.longitud, s.address, s.hours_old, s.image, c.name AS city_name, st.name AS subservice_name, p.name AS province_name
     FROM salon s
     INNER JOIN salon_service_type sst ON s.id_salon = sst.id_salon
     INNER JOIN service_type st ON sst.id_service_type = st.id_service_type
@@ -260,6 +456,81 @@ router.get("/searchSalonByService", (req, res) => {
         });
       }
 
+
+         // Aseguramos que `results` es de tipo RowDataPacket[]
+         const rows = results as RowDataPacket[];
+
+         // Obtener el día y hora actuales
+         const currentDay = new Date().toLocaleString('es-ES', { weekday: 'long' });
+         const currentTime = new Date();
+
+         function isOpen(hoursOld:any, currentDay:any, currentTime:any) {
+             const daysOfWeek = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+         
+             // Verificar si `hoursOld` es nulo o vacío
+             if (!hoursOld) {
+                 return false;
+             }
+         
+             // Convertir `currentDay` a índice numérico si se pasa como texto
+             if (typeof currentDay === 'string') {
+                 currentDay = daysOfWeek.indexOf(currentDay.toLowerCase());
+             }
+         
+             // Validación del índice de `currentDay`
+             if (typeof currentDay !== 'number' || currentDay < 0 || currentDay > 6) {
+                 return false;
+             }
+         
+             const currentDayFormatted = daysOfWeek[currentDay].toLowerCase();
+             const dayMap = new Map();
+             const days = hoursOld.split(';'); // Separar los días por `;`
+         
+             days.forEach((dayEntry:any) => {
+                 const [day, ...hoursArr] = dayEntry.split(':'); // Separar el día de las horas
+                 const hours = hoursArr.join(':').trim(); // Volver a unir y limpiar las horas
+                 if (day && hours) {
+                     dayMap.set(day.trim().toLowerCase(), hours); // Guardar el día y las horas correctamente
+                 }
+             });
+         
+             // Verificar si el horario está disponible para el día actual
+             if (dayMap.has(currentDayFormatted)) {
+                 const hours = dayMap.get(currentDayFormatted);
+                 if (hours && hours !== 'Cerrado' && hours.trim() !== '') {
+                     const timeRanges = hours.split(',').map((range:any) => range.trim());
+                     for (const range of timeRanges) {
+                         const parts = range.split('-').map((time:any) => time && time.trim());
+                         if (parts.length !== 2) continue;
+         
+                         const [aperturaStr, cierreStr] = parts;
+                         if (aperturaStr && cierreStr && /^\d{2}:\d{2}$/.test(aperturaStr) && /^\d{2}:\d{2}$/.test(cierreStr)) {
+                             const [aperturaHora, aperturaMin] = aperturaStr.split(':').map(Number);
+                             const [cierreHora, cierreMin] = cierreStr.split(':').map(Number);
+         
+                             const apertura = new Date(currentTime);
+                             apertura.setHours(aperturaHora, aperturaMin, 0);
+         
+                             const cierre = new Date(currentTime);
+                             cierre.setHours(cierreHora, cierreMin, 0);
+         
+                             if (currentTime >= apertura && currentTime <= cierre) {
+                                 return true;
+                             }
+                         }
+                     }
+                 }
+             }
+         
+             return false; // Si no hay horarios o está cerrado
+         }
+
+         // Procesar los resultados para agregar el estado de apertura/cierre
+         const processedResults = rows.map(salon => {
+             const is_open = isOpen(salon.hours_old, currentDay, currentTime);
+             return { ...salon, is_open };
+         });
+      
       // Si todo sale bien, hacer commit
       connection.commit((err) => {
         if (err) {
@@ -270,8 +541,8 @@ router.get("/searchSalonByService", (req, res) => {
         }
 
         // Enviar los resultados si el commit es exitoso
-        res.json(results);
-        console.log('Resultados devueltos:', results);
+        res.json(processedResults);
+        console.log('Resultados devueltos:', processedResults);
       });
     });
   });

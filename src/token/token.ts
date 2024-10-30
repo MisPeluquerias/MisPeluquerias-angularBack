@@ -26,7 +26,7 @@ function verifyToken(req: Request | any, res: Response, next: NextFunction) {
     // Verificar el token con la clave secreta
     const verified = jwt.verify(token, secretKey);
 
-    console.log('Token verificado con éxito:', verified);
+    //console.log('Token verificado con éxito:', verified);
 
     // Obtener el tiempo de expiración (exp) del token y el tiempo actual
     const currentTime = Math.floor(Date.now() / 1000); // Tiempo actual en segundos
