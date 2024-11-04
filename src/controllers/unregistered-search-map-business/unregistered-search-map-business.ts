@@ -23,6 +23,7 @@ router.get("/searchByCityById", async (req, res) => {
         resolve(undefined);
       });
     });
+   
 
     // Consulta con INNER JOIN para obtener los salones de ciudades con el mismo nombre
     const query = `
