@@ -36,9 +36,9 @@ router.post('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
             //console.log('Coincidencia de contraseña:', match); // Debugging
             if (match) {
                 // Genera el token con el id_user
-                const token = jsonwebtoken_1.default.sign({ id: usuario.id_user }, SECRET_KEY, { expiresIn: '1h' });
-                const usuarioId = jsonwebtoken_1.default.sign({ usuarioId: usuario.id_user }, SECRET_KEY, { expiresIn: '1h' });
-                const permiso = jsonwebtoken_1.default.sign({ permiso: usuario.permiso }, SECRET_KEY, { expiresIn: '1h' });
+                const token = jsonwebtoken_1.default.sign({ id: usuario.id_user }, SECRET_KEY, { expiresIn: '30m' });
+                const usuarioId = jsonwebtoken_1.default.sign({ usuarioId: usuario.id_user }, SECRET_KEY, { expiresIn: '30m' });
+                const permiso = jsonwebtoken_1.default.sign({ permiso: usuario.permiso }, SECRET_KEY, { expiresIn: '30m' });
                 return res.json({ token, usuarioId, permiso });
             }
             else {

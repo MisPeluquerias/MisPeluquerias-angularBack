@@ -12,8 +12,11 @@ import { RowDataPacket } from "mysql2";
 
 
 router.get("/chargeMarkersAndCard", verifyToken, async (req: Request, res: Response) => {
-    const { northEastLat, northEastLng, southWestLat, southWestLng } = req.query;
+    const { northEastLat, northEastLng, southWestLat, southWestLng, status, statusCategory } = req.query;
     const { id_user } = req.query;
+
+    //console.log('Estado recibido:', status);
+    //console.log('Categoría recibida:', statusCategory);
 
     if (!id_user) {
         return res.status(400).json({ error: "User ID is required" });
@@ -38,119 +41,136 @@ router.get("/chargeMarkersAndCard", verifyToken, async (req: Request, res: Respo
             });
         });
 
-        const query = `
+        // Consulta base
+        let query = `
             SELECT salon.id_salon, salon.longitud, salon.latitud, salon.name, salon.address, salon.image,
-                   salon.hours_old,
+                   salon.hours_old, 
+                   GROUP_CONCAT(categories.categories SEPARATOR ', ') AS categories,
                    user_favourite.id_user_favourite, 
                    IF(user_favourite.id_user IS NOT NULL, true, false) AS is_favorite
             FROM salon
             LEFT JOIN user_favourite ON salon.id_salon = user_favourite.id_salon AND user_favourite.id_user = ?
+            LEFT JOIN categories ON salon.id_salon = categories.id_salon
             WHERE salon.latitud BETWEEN ? AND ? AND salon.longitud BETWEEN ? AND ?
         `;
 
-        connection.query(
-            query,
-            [decodedIdUser, southWestLat, northEastLat, southWestLng, northEastLng],
-            (error, results) => {
-                if (error) {
-                    console.error("Error en la consulta SQL:", error);
-                    return connection.rollback(() => {
-                        res.status(500).json({ error: "Error al buscar el servicio." });
-                    });
+
+        // Parámetros de la consulta
+        const queryParams = [decodedIdUser, southWestLat, northEastLat, southWestLng, northEastLng];
+
+        // Condición adicional si `statusCategory` está definido
+        if (statusCategory) {
+            query += ` AND categories.categories = ?`;
+            queryParams.push(statusCategory);
+        }
+
+        // Finaliza la consulta con el GROUP BY
+        query += ` GROUP BY salon.id_salon`;
+
+        connection.query(query, queryParams, (error, results) => {
+            if (error) {
+                console.error("Error en la consulta SQL:", error);
+                return connection.rollback(() => {
+                    res.status(500).json({ error: "Error al realizar la consulta." });
+                });
+            }
+
+            const rows = results as RowDataPacket[];
+            const currentDay = new Date().toLocaleString('es-ES', { weekday: 'long' });
+            const currentTime = new Date();
+
+            function isOpen(hoursOld: any, currentDay: any, currentTime: any) {
+                const daysOfWeek = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+
+                if (!hoursOld) {
+                    return false;
                 }
 
-                // Aseguramos que `results` es de tipo RowDataPacket[]
-                const rows = results as RowDataPacket[];
+                if (typeof currentDay === 'string') {
+                    currentDay = daysOfWeek.indexOf(currentDay.toLowerCase());
+                }
 
-                // Obtener el día y hora actuales
-                const currentDay = new Date().toLocaleString('es-ES', { weekday: 'long' });
-                const currentTime = new Date();
+                if (typeof currentDay !== 'number' || currentDay < 0 || currentDay > 6) {
+                    return false;
+                }
 
-                function isOpen(hoursOld:any, currentDay:any, currentTime:any) {
-                    const daysOfWeek = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
-                
-                    // Verificar si `hoursOld` es nulo o vacío
-                    if (!hoursOld) {
-                        return false;
+                const currentDayFormatted = daysOfWeek[currentDay].toLowerCase();
+                const dayMap = new Map();
+                const days = hoursOld.split(';');
+
+                days.forEach((dayEntry: any) => {
+                    const [day, ...hoursArr] = dayEntry.split(':');
+                    const hours = hoursArr.join(':').trim();
+                    if (day && hours) {
+                        dayMap.set(day.trim().toLowerCase(), hours);
                     }
-                
-                    // Convertir `currentDay` a índice numérico si se pasa como texto
-                    if (typeof currentDay === 'string') {
-                        currentDay = daysOfWeek.indexOf(currentDay.toLowerCase());
-                    }
-                
-                    // Validación del índice de `currentDay`
-                    if (typeof currentDay !== 'number' || currentDay < 0 || currentDay > 6) {
-                        return false;
-                    }
-                
-                    const currentDayFormatted = daysOfWeek[currentDay].toLowerCase();
-                    const dayMap = new Map();
-                    const days = hoursOld.split(';'); // Separar los días por `;`
-                
-                    days.forEach((dayEntry:any) => {
-                        const [day, ...hoursArr] = dayEntry.split(':'); // Separar el día de las horas
-                        const hours = hoursArr.join(':').trim(); // Volver a unir y limpiar las horas
-                        if (day && hours) {
-                            dayMap.set(day.trim().toLowerCase(), hours); // Guardar el día y las horas correctamente
-                        }
-                    });
-                
-                    // Verificar si el horario está disponible para el día actual
-                    if (dayMap.has(currentDayFormatted)) {
-                        const hours = dayMap.get(currentDayFormatted);
-                        if (hours && hours !== 'Cerrado' && hours.trim() !== '') {
-                            const timeRanges = hours.split(',').map((range:any) => range.trim());
-                            for (const range of timeRanges) {
-                                const parts = range.split('-').map((time:any) => time && time.trim());
-                                if (parts.length !== 2) continue;
-                
-                                const [aperturaStr, cierreStr] = parts;
-                                if (aperturaStr && cierreStr && /^\d{2}:\d{2}$/.test(aperturaStr) && /^\d{2}:\d{2}$/.test(cierreStr)) {
-                                    const [aperturaHora, aperturaMin] = aperturaStr.split(':').map(Number);
-                                    const [cierreHora, cierreMin] = cierreStr.split(':').map(Number);
-                
-                                    const apertura = new Date(currentTime);
-                                    apertura.setHours(aperturaHora, aperturaMin, 0);
-                
-                                    const cierre = new Date(currentTime);
-                                    cierre.setHours(cierreHora, cierreMin, 0);
-                
-                                    if (currentTime >= apertura && currentTime <= cierre) {
-                                        return true;
-                                    }
+                });
+
+                if (dayMap.has(currentDayFormatted)) {
+                    const hours = dayMap.get(currentDayFormatted);
+                    if (hours && hours !== 'Cerrado' && hours.trim() !== '') {
+                        const timeRanges = hours.split(',').map((range: any) => range.trim());
+                        for (const range of timeRanges) {
+                            const parts = range.split('-').map((time: any) => time && time.trim());
+                            if (parts.length !== 2) continue;
+
+                            const [aperturaStr, cierreStr] = parts;
+                            if (aperturaStr && cierreStr && /^\d{2}:\d{2}$/.test(aperturaStr) && /^\d{2}:\d{2}$/.test(cierreStr)) {
+                                const [aperturaHora, aperturaMin] = aperturaStr.split(':').map(Number);
+                                const [cierreHora, cierreMin] = cierreStr.split(':').map(Number);
+
+                                const apertura = new Date(currentTime);
+                                apertura.setHours(aperturaHora, aperturaMin, 0);
+
+                                const cierre = new Date(currentTime);
+                                cierre.setHours(cierreHora, cierreMin, 0);
+
+                                if (currentTime >= apertura && currentTime <= cierre) {
+                                    return true;
                                 }
                             }
                         }
                     }
-                
-                    return false; // Si no hay horarios o está cerrado
                 }
 
-                // Procesar los resultados para agregar el estado de apertura/cierre
-                const processedResults = rows.map(salon => {
+                return false;
+            }
+
+            // Procesar los resultados para agregar el estado de apertura/cierre y aplicar el filtro de estado si es necesario
+            const processedResults = rows
+                .map(salon => {
                     const is_open = isOpen(salon.hours_old, currentDay, currentTime);
                     return { ...salon, is_open };
-                });
-                
-
-                connection.commit((err) => {
-                    if (err) {
-                        console.error("Error al hacer commit:", err);
-                        return connection.rollback(() => {
-                            res.status(500).json({ error: "Error al buscar el servicio." });
-                        });
+                })
+                .filter(salon => {
+                    if (status === 'true') {
+                        return salon.is_open === true;
+                    } else if (status === 'false') {
+                        return salon.is_open === false;
                     }
-
-                    res.json(processedResults);
+                    return true; // Si no hay filtro de estado, devolver todos
                 });
-            }
-        );
+
+                
+            connection.commit((err) => {
+                if (err) {
+                    console.error("Error al hacer commit:", err);
+                    return connection.rollback(() => {
+                        res.status(500).json({ error: "Error al realizar la consulta." });
+                    });
+                }
+
+                res.json(processedResults);
+            });
+        });
     } catch (err) {
-        console.error("Error al buscar el servicio:", err);
-        res.status(500).json({ error: "Error al buscar el servicio." });
+        console.error("Error al realizar la consulta:", err);
+        res.status(500).json({ error: "Error al realizar la consulta." });
     }
 });
+
+
+
 
 
 
@@ -199,6 +219,47 @@ router.delete('/delete-favorite/:id_user_favorite',verifyToken, async(req: Reque
         });
     });
 });
+
+
+router.get("/getFilterCategories", async (req, res) => {
+    connection.beginTransaction((err) => {
+      if (err) {
+        return res.status(500).json({
+          success: false,
+          message: "Error starting transaction",
+          error: err,
+        });
+      }
+  
+      // Usar DISTINCT para seleccionar solo servicios únicos por nombre
+      const query = "SELECT DISTINCT categories FROM categories";
+   
+      connection.query(query, (err, results) => {
+        if (err) {
+          return connection.rollback(() => {
+            res.status(500).json({
+              success: false,
+              message: "Error fetching categories",
+              error: err,
+            });
+          });
+        }
+
+        connection.commit((err) => {
+          if (err) {
+            return connection.rollback(() => {
+              res.status(500).json({
+                success: false,
+                message: "Error committing transaction",
+                error: err,
+              });
+            });
+          }
+          res.json(results);
+        });
+      });
+    });
+  });
   
 
 

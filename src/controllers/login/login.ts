@@ -34,9 +34,9 @@ router.post('/', async (req: Request, res: Response) => {
 
             if (match) {
                 // Genera el token con el id_user
-                const token = jwt.sign({ id: usuario.id_user }, SECRET_KEY, { expiresIn: '1h' });
-                const usuarioId = jwt.sign({ usuarioId: usuario.id_user }, SECRET_KEY, { expiresIn: '1h' });
-                const permiso = jwt.sign({ permiso: usuario.permiso }, SECRET_KEY, { expiresIn: '1h' });
+                const token = jwt.sign({ id: usuario.id_user }, SECRET_KEY, { expiresIn: '30m' });
+                const usuarioId = jwt.sign({ usuarioId: usuario.id_user }, SECRET_KEY, { expiresIn: '30m' });
+                const permiso = jwt.sign({ permiso: usuario.permiso }, SECRET_KEY, { expiresIn: '30m' });
                 return res.json({ token,usuarioId,permiso });
            
             } else {
