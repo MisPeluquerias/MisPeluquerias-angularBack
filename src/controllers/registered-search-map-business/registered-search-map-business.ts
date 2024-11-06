@@ -172,10 +172,6 @@ router.get("/chargeMarkersAndCard", verifyToken, async (req: Request, res: Respo
 
 
 
-
-
-
-
 router.delete('/delete-favorite/:id_user_favorite',verifyToken, async(req: Request, res: Response) => {
     const { id_user_favorite } = req.params;
 

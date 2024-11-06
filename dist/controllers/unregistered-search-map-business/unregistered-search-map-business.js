@@ -15,16 +15,19 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const db_1 = __importDefault(require("../../db/db"));
 const body_parser_1 = __importDefault(require("body-parser"));
+const decodeToken_1 = __importDefault(require("../../functions/decodeToken"));
 const router = express_1.default.Router();
 router.use(body_parser_1.default.json());
 router.get("/searchByCityById", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { id_city } = req.query;
+        const { id_city, id_user } = req.query;
+        //console.log("Id de la ciudad:", id_city, "Id del usuario:", id_user);
         if (!id_city) {
             return res
                 .status(400)
                 .json({ error: "El parámetro 'id_city' es requerido." });
         }
+        const decodedUserId = typeof id_user === "string" ? (0, decodeToken_1.default)(id_user) : null;
         // Iniciar la transacción
         yield new Promise((resolve, reject) => {
             db_1.default.beginTransaction((err) => {
@@ -33,21 +36,31 @@ router.get("/searchByCityById", (req, res) => __awaiter(void 0, void 0, void 0, 
                 resolve(undefined);
             });
         });
-        // Consulta con INNER JOIN para obtener los salones de ciudades con el mismo nombre
+        // Consulta SQL con JOIN condicional basado en id_user
         const query = `
-      SELECT s.id_salon, s.longitud, s.latitud, s.name, s.address, s.image, s.hours_old,
-       GROUP_CONCAT(DISTINCT categories.categories ORDER BY categories.categories SEPARATOR ', ') AS categories
-          FROM salon s
-          LEFT JOIN categories ON s.id_salon = categories.id_salon
-          INNER JOIN city c ON s.id_city = c.id_city
-          WHERE c.name = (
-            SELECT name
-            FROM city
-          WHERE id_city = ?
-          )
-          GROUP BY s.id_salon;
-    `;
-        db_1.default.query(query, [id_city], (error, results) => {
+    SELECT s.id_salon, s.longitud, s.latitud, s.name, s.address, s.image, s.hours_old,
+      GROUP_CONCAT(DISTINCT categories.categories ORDER BY categories.categories SEPARATOR ', ') AS categories,
+      ${decodedUserId ? "user_favourite.id_user_favourite," : ""}
+      ${decodedUserId
+            ? "IF(user_favourite.id_user IS NOT NULL, true, false) AS is_favorite,"
+            : ""}
+      c.name
+    FROM salon s
+    ${decodedUserId
+            ? "LEFT JOIN user_favourite ON s.id_salon = user_favourite.id_salon AND user_favourite.id_user = ?"
+            : ""}
+    LEFT JOIN categories ON s.id_salon = categories.id_salon
+    INNER JOIN city c ON s.id_city = c.id_city
+    WHERE c.name = (
+      SELECT name
+      FROM city
+      WHERE id_city = ?
+    )
+    GROUP BY s.id_salon;
+  `;
+        // Configurar los parámetros para la consulta dependiendo de si `id_user` existe
+        const queryParams = decodedUserId ? [decodedUserId, id_city] : [id_city];
+        db_1.default.query(query, queryParams, (error, results) => {
             if (error) {
                 console.error("Error al buscar los salones:", error);
                 return db_1.default.rollback(() => {
@@ -70,13 +83,10 @@ router.get("/searchByCityById", (req, res) => __awaiter(void 0, void 0, void 0, 
                     "sábado",
                     "domingo",
                 ];
-                // Verificar si `hoursOld`, `currentDay` o `currentTime` son nulos o indefinidos
                 if (!hoursOld || !currentDay || !currentTime) {
                     return false;
                 }
-                // Convertir currentDay a índice numérico si se pasa como texto
                 const dayIndex = daysOfWeek.indexOf(currentDay.toLowerCase());
-                // Validación del índice de currentDay
                 if (dayIndex === -1)
                     return false;
                 const currentDayFormatted = daysOfWeek[dayIndex];
@@ -117,7 +127,7 @@ router.get("/searchByCityById", (req, res) => __awaiter(void 0, void 0, void 0, 
                         }
                     }
                 }
-                return false; // Si no hay horarios o está cerrado
+                return false;
             }
             // Procesar los resultados para agregar el estado de apertura/cierre
             const processedResults = rows.map((salon) => {
@@ -142,7 +152,7 @@ router.get("/searchByCityById", (req, res) => __awaiter(void 0, void 0, void 0, 
 }));
 router.get("/searchByCityAndCategory", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { id_city, categoria } = req.query;
+        const { id_city, categoria, id_user } = req.query;
         if (!id_city || !categoria) {
             return res.status(400).json({
                 error: "Los parámetros 'id_city' y 'categoria' son requeridos.",
@@ -348,7 +358,9 @@ router.get("/searchByCityName", (req, res) => __awaiter(void 0, void 0, void 0, 
                 if (dayMap.has(currentDayFormatted)) {
                     const hours = dayMap.get(currentDayFormatted);
                     if (hours && hours !== "Cerrado" && hours.trim() !== "") {
-                        const timeRanges = hours.split(",").map((range) => range.trim());
+                        const timeRanges = hours
+                            .split(",")
+                            .map((range) => range.trim());
                         for (const range of timeRanges) {
                             const [aperturaStr, cierreStr] = range
                                 .split("-")
