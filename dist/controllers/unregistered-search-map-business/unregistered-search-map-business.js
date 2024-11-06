@@ -38,13 +38,11 @@ router.get("/searchByCityById", (req, res) => __awaiter(void 0, void 0, void 0, 
         });
         // Consulta SQL con JOIN condicional basado en id_user
         const query = `
-    SELECT s.id_salon, s.longitud, s.latitud, s.name, s.address, s.image, s.hours_old,
+    SELECT s.id_salon, s.longitud, s.latitud, s.name AS name, s.address, s.image, s.hours_old,
       GROUP_CONCAT(DISTINCT categories.categories ORDER BY categories.categories SEPARATOR ', ') AS categories,
       ${decodedUserId ? "user_favourite.id_user_favourite," : ""}
-      ${decodedUserId
-            ? "IF(user_favourite.id_user IS NOT NULL, true, false) AS is_favorite,"
-            : ""}
-      c.name
+      ${decodedUserId ? "IF(user_favourite.id_user IS NOT NULL, true, false) AS is_favorite," : ""}
+      c.name AS city_name
     FROM salon s
     ${decodedUserId
             ? "LEFT JOIN user_favourite ON s.id_salon = user_favourite.id_salon AND user_favourite.id_user = ?"
