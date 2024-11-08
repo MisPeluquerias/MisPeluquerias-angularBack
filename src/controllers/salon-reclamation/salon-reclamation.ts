@@ -9,6 +9,7 @@ import path from "path";
 import fs from 'fs';
 import { verify } from "jsonwebtoken";
 import verifyToken from "../../token/token";
+import { ResultSetHeader } from "mysql2";
 
 
 
@@ -217,6 +218,21 @@ router.post("/newReclamation", verifyToken, upload.fields([
           });
         }
 
+        const alertText = `Nueva reclamación pendiente: ${salon_name}`;
+         const alertUrl = `/reclamations`;
+         connection.query<ResultSetHeader>(
+           `
+           INSERT INTO alert_admin (text, url, showed, created_at)
+           VALUES (?, ?, 0, NOW());
+           `,
+           [alertText, alertUrl],
+           (err, alertResults) => {
+             if (err) {
+               return connection.rollback(() => {
+                 res.status(500).json({ error: 'Error al insertar la alerta' });
+               });
+             }
+
         connection.commit((err) => {
           if (err) {
             return connection.rollback(() => {
@@ -224,12 +240,24 @@ router.post("/newReclamation", verifyToken, upload.fields([
             });
           }
 
+          if ((req as any).io) {
+            (req as any).io.emit('new-alert', {
+              message: alertText,
+              url: alertUrl,
+              alertId: alertResults.insertId,
+            });
+          } else {
+            console.error("Socket.IO no está disponible en req");
+          }
+
           return res.status(200).send("Reclamación registrada con éxito");
         });
-      }
-    );
+      });
+    });
   });
-})
+
+  });
+
 
 
 

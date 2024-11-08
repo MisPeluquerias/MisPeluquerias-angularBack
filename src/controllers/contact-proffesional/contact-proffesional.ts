@@ -39,6 +39,26 @@ router.post("/newContactProffesional", async (req, res) => {
           });
         }
 
+
+        const contactId = results.insertId;
+
+
+         // Inserción de la alerta en la tabla alert_admin
+         const alertText = `Nuevo contacto profesional: ${name}`;
+         const alertUrl = `/contact-proffesional`;
+         connection.query<ResultSetHeader>(
+           `
+           INSERT INTO alert_admin (text, url, showed, created_at)
+           VALUES (?, ?, 0, NOW());
+           `,
+           [alertText, alertUrl],
+           (err, alertResults) => {
+             if (err) {
+               return connection.rollback(() => {
+                 res.status(500).json({ error: 'Error al insertar la alerta' });
+               });
+             }
+
         // Si todo está bien, confirmar la transacción
         connection.commit((err) => {
           if (err) {
@@ -49,6 +69,16 @@ router.post("/newContactProffesional", async (req, res) => {
             });
           }
 
+          if ((req as any).io) {
+            (req as any).io.emit('new-alert', {
+              message: alertText,
+              url: alertUrl,
+              alertId: alertResults.insertId,
+            });
+          } else {
+            console.error("Socket.IO no está disponible en req");
+          }
+
           res.status(201).json({
             message: "Contacto añadido exitosamente",
             contactId: results.insertId,
@@ -56,8 +86,20 @@ router.post("/newContactProffesional", async (req, res) => {
         });
       }
     );
-  });
+  }
+);
 });
+});
+
+
+
+
+
+
+
+
+
+
 
 router.get("/getCitiesByProvince", async (req: Request, res: Response) => {
   const id_province = req.query.id_province;

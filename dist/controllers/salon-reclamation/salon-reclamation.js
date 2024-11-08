@@ -176,13 +176,35 @@ router.post("/newReclamation", token_1.default, upload.fields([
                     return res.status(500).send("Error en el servidor");
                 });
             }
-            db_1.default.commit((err) => {
+            const alertText = `Nueva reclamación pendiente: ${salon_name}`;
+            const alertUrl = `/reclamations`;
+            db_1.default.query(`
+           INSERT INTO alert_admin (text, url, showed, created_at)
+           VALUES (?, ?, 0, NOW());
+           `, [alertText, alertUrl], (err, alertResults) => {
                 if (err) {
                     return db_1.default.rollback(() => {
-                        return res.status(500).send("Error en el servidor");
+                        res.status(500).json({ error: 'Error al insertar la alerta' });
                     });
                 }
-                return res.status(200).send("Reclamación registrada con éxito");
+                db_1.default.commit((err) => {
+                    if (err) {
+                        return db_1.default.rollback(() => {
+                            return res.status(500).send("Error en el servidor");
+                        });
+                    }
+                    if (req.io) {
+                        req.io.emit('new-alert', {
+                            message: alertText,
+                            url: alertUrl,
+                            alertId: alertResults.insertId,
+                        });
+                    }
+                    else {
+                        console.error("Socket.IO no está disponible en req");
+                    }
+                    return res.status(200).send("Reclamación registrada con éxito");
+                });
             });
         });
     });
