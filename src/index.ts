@@ -16,9 +16,35 @@ import favoritesSalon from './controllers/favorite-salon/favorite-salon';
 import siteMap from './functions/generate-sitemap';
 import path from 'path';
 import decodeTokenIdUser from './functions/decodeTokenIdUser';
+import http from 'http';
+import { Server as SocketIOServer } from 'socket.io';
+
+
+
 
 const app = express();
+
+const server = http.createServer(app);
+
+// Configuración de Socket.IO con CORS para permitir todos los orígenes
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: '*', // Permitir todos los orígenes (puedes especificar el dominio en producción)
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Authorization'],
+    credentials: true
+  }
+});
+
+
+app.use((req: any, res, next) => {
+  req.io = io;
+  next();
+});
+
+
 app.use(express.json());
+
 
 app.use(cors());
 
@@ -46,6 +72,32 @@ app.use(function(req, res, next) {
   app.use('/sitemap.xml', siteMap);
   app.use('/decode-token',decodeTokenIdUser);
 
+
+
+  io.on('connection', (socket) => {
+    //console.log('Cliente conectado a Socket.IO');
+  
+    // Manejo de mensajes recibidos del cliente
+    socket.on('message', (message) => {
+      //onsole.log('Mensaje recibido:', message);
+      io.emit('message', message); // Envía el mensaje a todos los clientes conectados
+    });
+  
+    // Manejo de desconexiones
+    socket.on('disconnect', () => {
+      //console.log('Cliente desconectado de Socket.IO');
+    });
+  });
+
+
+/*
 app.listen(3900, () => {
+  console.log('Servidor iniciado en http://localhost:3900');
+
+  
+});
+*/
+
+server.listen(3900, () => {
   console.log('Servidor iniciado en http://localhost:3900');
 });

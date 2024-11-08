@@ -20,7 +20,9 @@ router.use(bodyParser.json());
 const decodeToken_1 = __importDefault(require("../../functions/decodeToken"));
 router.get("/", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { id } = req.query;
+        const { id, id_user } = req.query;
+        const decodedUserId = typeof id_user === "string" ? (0, decodeToken_1.default)(id_user) : null;
+        //console.log(decodedUserId);
         if (!id) {
             return res
                 .status(400)
@@ -36,12 +38,33 @@ router.get("/", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         });
         // Modificar la consulta para usar zip_code
         const query = `
-      SELECT state, longitud, latitud, name, address, image,phone,email,hours_old,url,
-      facebook_url,instagram_url,tiktok_url,youtube_url
-      FROM salon
-      WHERE id_salon = ? 
-    `;
-        db_1.default.query(query, [id], (error, results) => {
+    SELECT 
+      s.id_salon, 
+      s.state, 
+      s.longitud, 
+      s.latitud, 
+      s.name AS name, 
+      s.address, 
+      s.image, 
+      s.phone, 
+      s.email, 
+      s.hours_old, 
+      s.url,
+      s.facebook_url, 
+      s.instagram_url, 
+      s.tiktok_url, 
+      s.youtube_url,
+      ${decodedUserId ? "user_favourite.id_user_favourite," : ""}
+      ${decodedUserId ? "IF(user_favourite.id_user IS NOT NULL, true, false) AS is_favorite," : "false AS is_favorite,"}
+      c.name AS city_name
+    FROM salon s
+    ${decodedUserId ? "LEFT JOIN user_favourite ON s.id_salon = user_favourite.id_salon AND user_favourite.id_user = ?" : ""}
+    INNER JOIN city c ON s.id_city = c.id_city
+    WHERE s.id_salon = ?
+    GROUP BY s.id_salon;
+  `;
+        const queryParams = decodedUserId ? [decodedUserId, id] : [id];
+        db_1.default.query(query, queryParams, (error, results) => {
             if (error) {
                 console.error("Error al buscar el servicio:", error);
                 return db_1.default.rollback(() => {
@@ -707,7 +730,7 @@ router.post("/addFaq", (req, res) => __awaiter(void 0, void 0, void 0, function*
         if (!usuarioId) {
             return res.status(400).json({ error: "Token inválido o expirado." });
         }
-        console.log("ID de usuario decodificado:", usuarioId);
+        //console.log("ID de usuario decodificado:", usuarioId);
         yield new Promise((resolve, reject) => {
             db_1.default.beginTransaction((err) => {
                 if (err)

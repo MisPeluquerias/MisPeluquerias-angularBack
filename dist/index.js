@@ -21,7 +21,23 @@ const favorite_salon_1 = __importDefault(require("./controllers/favorite-salon/f
 const generate_sitemap_1 = __importDefault(require("./functions/generate-sitemap"));
 const path_1 = __importDefault(require("path"));
 const decodeTokenIdUser_1 = __importDefault(require("./functions/decodeTokenIdUser"));
+const http_1 = __importDefault(require("http"));
+const socket_io_1 = require("socket.io");
 const app = (0, express_1.default)();
+const server = http_1.default.createServer(app);
+// Configuración de Socket.IO con CORS para permitir todos los orígenes
+const io = new socket_io_1.Server(server, {
+    cors: {
+        origin: '*', // Permitir todos los orígenes (puedes especificar el dominio en producción)
+        methods: ['GET', 'POST'],
+        allowedHeaders: ['Authorization'],
+        credentials: true
+    }
+});
+app.use((req, res, next) => {
+    req.io = io;
+    next();
+});
 app.use(express_1.default.json());
 app.use((0, cors_1.default)());
 app.use('/uploads-reclamation', express_1.default.static(path_1.default.join(__dirname, '../dist/uploads-reclamation')));
@@ -45,6 +61,25 @@ app.use('/profile-user', profileUser_1.default);
 app.use('/favorites', favorite_salon_1.default);
 app.use('/sitemap.xml', generate_sitemap_1.default);
 app.use('/decode-token', decodeTokenIdUser_1.default);
+io.on('connection', (socket) => {
+    //console.log('Cliente conectado a Socket.IO');
+    // Manejo de mensajes recibidos del cliente
+    socket.on('message', (message) => {
+        //onsole.log('Mensaje recibido:', message);
+        io.emit('message', message); // Envía el mensaje a todos los clientes conectados
+    });
+    // Manejo de desconexiones
+    socket.on('disconnect', () => {
+        //console.log('Cliente desconectado de Socket.IO');
+    });
+});
+/*
 app.listen(3900, () => {
+  console.log('Servidor iniciado en http://localhost:3900');
+
+  
+});
+*/
+server.listen(3900, () => {
     console.log('Servidor iniciado en http://localhost:3900');
 });

@@ -3,6 +3,9 @@ import connection from "../../db/db";
 import bodyParser from "body-parser";
 import { QueryError, RowDataPacket } from "mysql2";
 import decodeToken from "../../functions/decodeToken";
+import { Request, Response } from "express";
+import verifyToken from "../../token/token";
+import { OkPacket } from "mysql2";
 
 const router = express.Router();
 router.use(bodyParser.json());
@@ -33,12 +36,17 @@ router.get("/searchByCityById", async (req, res) => {
     SELECT s.id_salon, s.longitud, s.latitud, s.name AS name, s.address, s.image, s.hours_old,
       GROUP_CONCAT(DISTINCT categories.categories ORDER BY categories.categories SEPARATOR ', ') AS categories,
       ${decodedUserId ? "user_favourite.id_user_favourite," : ""}
-      ${decodedUserId ? "IF(user_favourite.id_user IS NOT NULL, true, false) AS is_favorite," : ""}
+      ${
+        decodedUserId
+          ? "IF(user_favourite.id_user IS NOT NULL, true, false) AS is_favorite,"
+          : ""
+      }
       c.name AS city_name
     FROM salon s
-    ${decodedUserId
-      ? "LEFT JOIN user_favourite ON s.id_salon = user_favourite.id_salon AND user_favourite.id_user = ?"
-      : ""
+    ${
+      decodedUserId
+        ? "LEFT JOIN user_favourite ON s.id_salon = user_favourite.id_salon AND user_favourite.id_user = ?"
+        : ""
     }
     LEFT JOIN categories ON s.id_salon = categories.id_salon
     INNER JOIN city c ON s.id_city = c.id_city
@@ -49,7 +57,6 @@ router.get("/searchByCityById", async (req, res) => {
     )
     GROUP BY s.id_salon;
   `;
-  
 
     // Configurar los parámetros para la consulta dependiendo de si `id_user` existe
     const queryParams = decodedUserId ? [decodedUserId, id_city] : [id_city];
@@ -158,17 +165,18 @@ router.get("/searchByCityById", async (req, res) => {
   }
 });
 
-
-
 router.get("/searchByCityAndCategory", async (req, res) => {
   try {
-    const { id_city, categoria, id_user} = req.query;
+    const { id_city, categoria, id_user } = req.query;
 
     if (!id_city || !categoria) {
       return res.status(400).json({
         error: "Los parámetros 'id_city' y 'categoria' son requeridos.",
       });
     }
+
+    const decodedUserId =
+      typeof id_user === "string" ? decodeToken(id_user) : null;
 
     // Iniciar la transacción
     await new Promise((resolve, reject) => {
@@ -180,10 +188,25 @@ router.get("/searchByCityAndCategory", async (req, res) => {
 
     // Consulta con INNER JOIN para obtener los salones en la ciudad específica y la categoría deseada
     const query = `
-      SELECT s.id_salon, s.longitud, s.latitud, s.name, s.address, s.image, s.hours_old
+      SELECT s.id_salon, s.longitud, s.latitud, s.name, s.address, s.image, s.hours_old,
+      ${
+        decodedUserId
+          ? "user_favourite.id_user_favourite"
+          : "NULL AS id_user_favourite"
+      },
+             ${
+               decodedUserId
+                 ? "IF(user_favourite.id_user IS NOT NULL, true, false) AS is_favorite"
+                 : "false AS is_favorite"
+             }
       FROM salon s
       INNER JOIN city c ON s.id_city = c.id_city
       INNER JOIN categories cat ON s.id_salon = cat.id_salon
+      ${
+        decodedUserId
+          ? "LEFT JOIN user_favourite ON s.id_salon = user_favourite.id_salon AND user_favourite.id_user = ?"
+          : ""
+      }
       WHERE c.name = (
         SELECT name
         FROM city
@@ -192,7 +215,11 @@ router.get("/searchByCityAndCategory", async (req, res) => {
       AND cat.categories = ?
     `;
 
-    connection.query(query, [id_city, categoria], (error, results) => {
+    const queryParams = decodedUserId
+      ? [decodedUserId, id_city, categoria]
+      : [id_city, categoria];
+
+    connection.query(query, queryParams, (error, results) => {
       if (error) {
         console.error("Error al buscar los salones:", error);
         return connection.rollback(() => {
@@ -298,15 +325,21 @@ router.get("/searchByCityAndCategory", async (req, res) => {
   }
 });
 
+
+
+
 router.get("/searchByCityName", async (req, res) => {
   try {
-    const { name, categoria } = req.query;
+    const { name, categoria, id_user } = req.query;
 
     if (!name) {
       return res
         .status(400)
         .json({ error: "El parámetro 'name' es requerido." });
     }
+
+    const decodedUserId =
+      typeof id_user === "string" ? decodeToken(id_user) : null;
 
     // Iniciar la transacción
     await new Promise((resolve, reject) => {
@@ -318,18 +351,33 @@ router.get("/searchByCityName", async (req, res) => {
 
     // Construir la consulta SQL con `name` como filtro obligatorio y `categoria` opcional
     let getSalonsQuery = `
-      SELECT s.id_salon, s.longitud, s.latitud, s.name, s.address, s.image, s.hours_old,
-      GROUP_CONCAT(categories.categories SEPARATOR ', ') AS categories
-      FROM salon s
-      LEFT JOIN categories ON s.id_salon = categories.id_salon
-      INNER JOIN city ON s.id_city = city.id_city
-      INNER JOIN province ON city.id_province = province.id_province
-      WHERE province.name = ?
-      AND s.longitud IS NOT NULL
-      AND s.latitud IS NOT NULL
-    `;
+  SELECT s.id_salon, s.longitud, s.latitud, s.name, s.address, s.image, s.hours_old,
+         GROUP_CONCAT(categories.categories SEPARATOR ', ') AS categories,
+         ${
+           decodedUserId
+             ? "user_favourite.id_user_favourite"
+             : "NULL AS id_user_favourite"
+         },
+         ${
+           decodedUserId
+             ? "IF(user_favourite.id_user IS NOT NULL, true, false) AS is_favorite"
+             : "false AS is_favorite"
+         }
+  FROM salon s
+  LEFT JOIN categories ON s.id_salon = categories.id_salon
+  INNER JOIN city ON s.id_city = city.id_city
+  INNER JOIN province ON city.id_province = province.id_province
+  ${
+    decodedUserId
+      ? "LEFT JOIN user_favourite ON s.id_salon = user_favourite.id_salon AND user_favourite.id_user = ?"
+      : ""
+  }
+  WHERE province.name = ?
+  AND s.longitud IS NOT NULL
+  AND s.latitud IS NOT NULL
+`;
 
-    const queryParams = [name];
+    const queryParams = decodedUserId ? [decodedUserId, name] : [name];
 
     // Agregar filtro por `categoria` si está definido
     if (categoria) {
@@ -496,8 +544,8 @@ router.get("/searchByName", async (req, res) => {
 });
 
 router.get("/searchSalonByService", (req, res) => {
-  const { id_city, name, province_name } = req.query;
-  console.log(
+  const { id_city, name, province_name, id_user } = req.query;
+  /*console.log(
     "Id de la ciudad:",
     id_city,
     "Nombre del subservicio:",
@@ -505,16 +553,33 @@ router.get("/searchSalonByService", (req, res) => {
     "Nombre de la provincia:",
     province_name
   );
+*/
+
+  const decodedUserId =
+    typeof id_user === "string" ? decodeToken(id_user) : null;
+
+  console.log("Id del usuario decodificado:", decodedUserId);
 
   const query = `
-    SELECT s.id_salon, s.name, s.latitud, s.longitud, s.address, s.hours_old, s.image, c.name AS city_name, st.name AS subservice_name, p.name AS province_name
-    FROM salon s
-    INNER JOIN salon_service_type sst ON s.id_salon = sst.id_salon
-    INNER JOIN service_type st ON sst.id_service_type = st.id_service_type
-    INNER JOIN city c ON s.id_city = c.id_city
-    INNER JOIN province p ON c.id_province = p.id_province
-    WHERE st.name LIKE ? AND (c.id_city = ? OR p.name LIKE ?)
-  `;
+ SELECT s.id_salon, s.name, s.latitud, s.longitud, s.address, s.hours_old, s.image, 
+       c.name AS city_name, st.name AS subservice_name, p.name AS province_name
+       ${
+         decodedUserId
+           ? ", (SELECT id_user_favourite FROM user_favourite WHERE user_favourite.id_salon = s.id_salon LIMIT 1) AS id_user_favourite"
+           : ""
+       }
+       ${
+         decodedUserId
+           ? ", (SELECT IF(COUNT(user_favourite.id_user) > 0, true, false) FROM user_favourite WHERE user_favourite.id_salon = s.id_salon) AS is_favorite"
+           : ""
+       }
+FROM salon s
+INNER JOIN salon_service_type sst ON s.id_salon = sst.id_salon
+INNER JOIN service_type st ON sst.id_service_type = st.id_service_type
+INNER JOIN city c ON s.id_city = c.id_city
+INNER JOIN province p ON c.id_province = p.id_province
+WHERE st.name LIKE ? AND (c.id_city = ? OR p.name LIKE ?)
+`;
 
   // Iniciar la transacción
   connection.beginTransaction((err) => {
@@ -649,7 +714,7 @@ router.get("/searchSalonByService", (req, res) => {
 
           // Enviar los resultados si el commit es exitoso
           res.json(processedResults);
-          console.log("Resultados devueltos:", processedResults);
+          //console.log("Resultados devueltos:", processedResults);
         });
       }
     );
@@ -695,5 +760,64 @@ router.get("/getFilterCategories", async (req, res) => {
     });
   });
 });
+
+router.delete(
+  "/delete-favorite/:id_user_favorite",
+  verifyToken,
+  async (req: Request, res: Response) => {
+    const { id_user_favorite } = req.params;
+
+    if (!id_user_favorite) {
+      return res
+        .status(400)
+        .json({ error: "id_user_favorite parameter is required" });
+    }
+
+    connection.beginTransaction((err) => {
+      if (err) {
+        console.error("Transaction error:", err);
+        return res.status(500).json({ error: "Failed to start transaction" });
+      }
+
+      const query = "DELETE FROM user_favourite WHERE id_user_favourite = ?";
+      connection.query(
+        query,
+        [id_user_favorite],
+        (error, results: OkPacket) => {
+          if (error) {
+            return connection.rollback(() => {
+              console.error("Delete error:", error);
+              return res
+                .status(500)
+                .json({ error: "Failed to delete favorite" });
+            });
+          }
+
+          if (results.affectedRows === 0) {
+            return connection.rollback(() => {
+              console.error("No rows affected");
+              return res.status(404).json({ error: "Favorite not found" });
+            });
+          }
+
+          connection.commit((commitErr) => {
+            if (commitErr) {
+              return connection.rollback(() => {
+                console.error("Commit error:", commitErr);
+                return res
+                  .status(500)
+                  .json({ error: "Failed to commit transaction" });
+              });
+            }
+            return res.status(200).json({
+              message: "Favorite deleted successfully",
+            });
+          });
+        }
+      );
+    });
+  }
+);
+
 
 export default router;

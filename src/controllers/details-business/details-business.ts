@@ -8,8 +8,13 @@ import { RowDataPacket } from "mysql2";
 
 router.get("/", async (req, res) => {
   try {
-    const { id } = req.query;
+    const { id,id_user } = req.query;
 
+    const decodedUserId =
+    typeof id_user === "string" ? decodeToken(id_user) : null;
+
+
+    //console.log(decodedUserId);
     if (!id) {
       return res
         .status(400)
@@ -26,19 +31,42 @@ router.get("/", async (req, res) => {
 
     // Modificar la consulta para usar zip_code
     const query = `
-      SELECT state, longitud, latitud, name, address, image,phone,email,hours_old,url,
-      facebook_url,instagram_url,tiktok_url,youtube_url
-      FROM salon
-      WHERE id_salon = ? 
-    `;
+    SELECT 
+      s.id_salon, 
+      s.state, 
+      s.longitud, 
+      s.latitud, 
+      s.name AS name, 
+      s.address, 
+      s.image, 
+      s.phone, 
+      s.email, 
+      s.hours_old, 
+      s.url,
+      s.facebook_url, 
+      s.instagram_url, 
+      s.tiktok_url, 
+      s.youtube_url,
+      ${decodedUserId ? "user_favourite.id_user_favourite," : ""}
+      ${decodedUserId ? "IF(user_favourite.id_user IS NOT NULL, true, false) AS is_favorite," : "false AS is_favorite,"}
+      c.name AS city_name
+    FROM salon s
+    ${decodedUserId ? "LEFT JOIN user_favourite ON s.id_salon = user_favourite.id_salon AND user_favourite.id_user = ?" : ""}
+    INNER JOIN city c ON s.id_city = c.id_city
+    WHERE s.id_salon = ?
+    GROUP BY s.id_salon;
+  `;
 
-    connection.query(query, [id], (error, results) => {
+const queryParams = decodedUserId ? [decodedUserId, id] : [id];
+
+    connection.query(query, queryParams, (error, results) => {
       if (error) {
         console.error("Error al buscar el servicio:", error);
         return connection.rollback(() => {
           res.status(500).json({ error: "Error al buscar el servicio." });
         });
       }
+
 
       connection.commit((err) => {
         if (err) {
@@ -799,7 +827,7 @@ router.post("/addFaq", async (req, res) => {
       return res.status(400).json({ error: "Token inválido o expirado." });
     }
 
-    console.log("ID de usuario decodificado:", usuarioId);
+    //console.log("ID de usuario decodificado:", usuarioId);
 
     await new Promise((resolve, reject) => {
       connection.beginTransaction((err) => {
