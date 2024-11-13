@@ -222,10 +222,15 @@ router.get("/searchSalon", token_1.default, (req, res) => __awaiter(void 0, void
             db_1.default.beginTransaction((err) => {
                 if (err)
                     return reject(err);
-                resolve(undefined);
+                resolve(null);
             });
         });
-        const query = "SELECT * FROM salon WHERE name LIKE ?";
+        const query = `
+        SELECT s.name, s.id_city, s.address, c.id_province
+        FROM salon s
+        INNER JOIN city c ON s.id_city = c.id_city
+        WHERE s.name LIKE ?
+      `;
         db_1.default.query(query, [`%${name}%`], (error, results) => {
             if (error) {
                 console.error("Error al buscar el salón:", error);
@@ -233,13 +238,15 @@ router.get("/searchSalon", token_1.default, (req, res) => __awaiter(void 0, void
                     res.status(500).json({ error: "Error al buscar el salón." });
                 });
             }
-            db_1.default.commit((err) => {
-                if (err) {
-                    console.error("Error al hacer commit:", err);
+            // Realizar el commit de la transacción
+            db_1.default.commit((commitErr) => {
+                if (commitErr) {
+                    console.error("Error al hacer commit:", commitErr);
                     return db_1.default.rollback(() => {
-                        res.status(500).json({ error: "Error al buscar el salón." });
+                        res.status(500).json({ error: "Error al hacer commit." });
                     });
                 }
+                // Enviar los resultados si todo fue exitoso
                 res.json(results);
             });
         });

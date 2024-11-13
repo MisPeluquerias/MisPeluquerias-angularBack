@@ -154,7 +154,7 @@ router.get("/getCitiesByProvince",verifyToken, async (req: Request, res: Respons
     JOIN 
       city c ON p.id_province = c.id_province
     WHERE 
-      p.id_province = ?;
+      p.id_province = ? ORDER BY c.name;
   `;
 
   connection.query(
@@ -175,7 +175,7 @@ router.get("/getCitiesByProvince",verifyToken, async (req: Request, res: Respons
 
 router.get("/getProvincesForProfile",verifyToken, async (req: Request, res: Response) => {
   
-  const query = `SELECT id_province, name FROM province`;
+  const query = `SELECT id_province, name FROM province ORDER BY name`;
 
   connection.query(query, (queryError, results: RowDataPacket[]) => {
     if (queryError) {
@@ -213,7 +213,7 @@ router.get("/getCitiesByProvinceForProfile",verifyToken, async (req: Request, re
     JOIN 
       city c ON p.id_province = c.id_province
     WHERE 
-      p.id_province = ?;
+      p.id_province = ? order by c.name;
   `;
 
   connection.query(

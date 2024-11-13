@@ -261,50 +261,58 @@ router.post("/newReclamation", verifyToken, upload.fields([
 
 
 
-router.get("/searchSalon",verifyToken, async (req, res) => {
-  try {
-    const { name } = req.query;
-
-    if (!name) {
-      return res
-        .status(400)
-        .json({ error: "El parámetro 'name' es requerido." });
-    }
-
-    // Iniciar la transacción
-    await new Promise((resolve, reject) => {
-      connection.beginTransaction((err) => {
-        if (err) return reject(err);
-        resolve(undefined);
-      });
-    });
-
-    const query = "SELECT * FROM salon WHERE name LIKE ?";
-
-    connection.query(query, [`%${name}%`], (error, results) => {
-      if (error) {
-        console.error("Error al buscar el salón:", error);
-        return connection.rollback(() => {
-          res.status(500).json({ error: "Error al buscar el salón." });
-        });
+  router.get("/searchSalon", verifyToken, async (req, res) => {
+    try {
+      const { name } = req.query;
+  
+      if (!name) {
+        return res
+          .status(400)
+          .json({ error: "El parámetro 'name' es requerido." });
       }
-
-      connection.commit((err) => {
-        if (err) {
-          console.error("Error al hacer commit:", err);
+  
+      // Iniciar la transacción
+      await new Promise((resolve, reject) => {
+        connection.beginTransaction((err) => {
+          if (err) return reject(err);
+          resolve(null);
+        });
+      });
+  
+      const query = `
+        SELECT s.name, s.id_city, s.address, c.id_province
+        FROM salon s
+        INNER JOIN city c ON s.id_city = c.id_city
+        WHERE s.name LIKE ?
+      `;
+  
+      connection.query(query, [`%${name}%`], (error, results) => {
+        if (error) {
+          console.error("Error al buscar el salón:", error);
           return connection.rollback(() => {
             res.status(500).json({ error: "Error al buscar el salón." });
           });
         }
-
-        res.json(results);
+  
+        // Realizar el commit de la transacción
+        connection.commit((commitErr) => {
+          if (commitErr) {
+            console.error("Error al hacer commit:", commitErr);
+            return connection.rollback(() => {
+              res.status(500).json({ error: "Error al hacer commit." });
+            });
+          }
+  
+          // Enviar los resultados si todo fue exitoso
+          res.json(results);
+        });
       });
-    });
-  } catch (err) {
-    console.error("Error al buscar el salón:", err);
-    res.status(500).json({ error: "Error al buscar el salón." });
-  }
-});
+    } catch (err) {
+      console.error("Error al buscar el salón:", err);
+      res.status(500).json({ error: "Error al buscar el salón." });
+    }
+  });
+  
   
 
 router.get("/getSalonById", async (req, res) => {
