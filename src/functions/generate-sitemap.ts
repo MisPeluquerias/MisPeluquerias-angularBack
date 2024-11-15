@@ -63,6 +63,17 @@ router.get('/', async (req: Request, res: Response) => {
       url.ele('loc', `https://mispeluquerias.com${route}`);
     });
 
+    const videoUrlElement = root.ele('url');
+    videoUrlElement.ele('loc', 'https://www.mispeluquerias.com/home');
+    const videoElement = videoUrlElement.ele('video:video');
+    videoElement.ele('video:thumbnail_loc', 'https://www.mispeluquerias.com/assets/img/web/logo-mis-peluquerias.svg');
+    videoElement.ele('video:title', 'Bienvenida a Mis Peluquerías');
+    videoElement.ele('video:description', 'Conoce nuestra plataforma para encontrar el mejor salón de peluquería y belleza en tu ciudad.');
+    videoElement.ele('video:content_loc', 'https://www.mispeluquerias.com/assets/video/nav_video.webm');
+    videoElement.ele('video:player_loc', 'https://www.mispeluquerias.com/home');
+    videoElement.ele('video:duration', '15'); 
+    videoElement.ele('video:publication_date', '2024-11-15T00:00:00+00:00');
+
     res.header('Content-Type', 'application/xml');
     res.send(root.end({ pretty: true }));
   } catch (error) {
