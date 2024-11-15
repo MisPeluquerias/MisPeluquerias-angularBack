@@ -138,4 +138,58 @@ router.get('/get',verifyToken, (req: Request, res: Response) => {
 });
 
 
+router.get("/getImagesAdmin", async (req, res) => {
+    try {
+      const { salon_id } = req.query;
+  
+      if (!salon_id) {
+        return res
+          .status(400)
+          .json({ error: "El parámetro 'zone' es requerido." });
+      }
+  
+      // Iniciar la transacción
+      await new Promise((resolve, reject) => {
+        connection.beginTransaction((err) => {
+          if (err) return reject(err);
+          resolve(undefined);
+        });
+      });
+  
+      // Modificar la consulta para usar zip_code
+      const query = `
+        SELECT *
+        FROM file
+        WHERE salon_id = ? 
+      `;
+  
+      connection.query(query, [salon_id], (error, results) => {
+        if (error) {
+          console.error("Error al buscar el servicio:", error);
+          return connection.rollback(() => {
+            res
+              .status(500)
+              .json({ error: "Error al buscar las imagenes en el salon:" });
+          });
+        }
+  
+        connection.commit((err) => {
+          if (err) {
+            console.error("Error al hacer commit:", err);
+            return connection.rollback(() => {
+              res
+                .status(500)
+                .json({ error: "Error al buscar las imagenes en el salon:" });
+            });
+          }
+  
+          res.json(results);
+        });
+      });
+    } catch (err) {
+      console.error("Error al buscar las imagenes en el salon:", err);
+      res.status(500).json({ error: "Error al buscar las imagenes en el salon" });
+    }
+  });
+
 export default router;

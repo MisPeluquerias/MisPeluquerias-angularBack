@@ -129,4 +129,53 @@ router.get('/get', token_1.default, (req, res) => {
         return res.status(200).json(results);
     });
 });
+router.get("/getImagesAdmin", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { salon_id } = req.query;
+        if (!salon_id) {
+            return res
+                .status(400)
+                .json({ error: "El parámetro 'zone' es requerido." });
+        }
+        // Iniciar la transacción
+        yield new Promise((resolve, reject) => {
+            db_1.default.beginTransaction((err) => {
+                if (err)
+                    return reject(err);
+                resolve(undefined);
+            });
+        });
+        // Modificar la consulta para usar zip_code
+        const query = `
+        SELECT *
+        FROM file
+        WHERE salon_id = ? 
+      `;
+        db_1.default.query(query, [salon_id], (error, results) => {
+            if (error) {
+                console.error("Error al buscar el servicio:", error);
+                return db_1.default.rollback(() => {
+                    res
+                        .status(500)
+                        .json({ error: "Error al buscar las imagenes en el salon:" });
+                });
+            }
+            db_1.default.commit((err) => {
+                if (err) {
+                    console.error("Error al hacer commit:", err);
+                    return db_1.default.rollback(() => {
+                        res
+                            .status(500)
+                            .json({ error: "Error al buscar las imagenes en el salon:" });
+                    });
+                }
+                res.json(results);
+            });
+        });
+    }
+    catch (err) {
+        console.error("Error al buscar las imagenes en el salon:", err);
+        res.status(500).json({ error: "Error al buscar las imagenes en el salon" });
+    }
+}));
 exports.default = router;

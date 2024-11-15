@@ -1064,4 +1064,52 @@ router.get("/searchFaqs", (req, res) => __awaiter(void 0, void 0, void 0, functi
         res.status(500).json({ error: "Error al buscar las preguntas." });
     }
 }));
+router.get('/getJobOffers', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id } = req.query;
+    if (!id) {
+        return res.status(400).json({ error: 'El ID del salón es requerido.' });
+    }
+    try {
+        console.log('Id del salón recibida:', id);
+        // Inicia la transacción
+        yield new Promise((resolve, reject) => {
+            db_1.default.beginTransaction((err) => {
+                if (err)
+                    return reject(err);
+                resolve();
+            });
+        });
+        const query = `
+      SELECT *
+      FROM jobs_offers 
+      WHERE id_salon = ?
+    `;
+        db_1.default.query(query, [id], (error, results) => {
+            if (error) {
+                console.error('Error al buscar las ofertas de trabajo:', error);
+                return db_1.default.rollback(() => {
+                    res.status(500).json({ error: 'Error al buscar las ofertas de trabajo.' });
+                });
+            }
+            // Realiza el commit de la transacción
+            db_1.default.commit((err) => {
+                if (err) {
+                    console.error('Error al hacer commit:', err);
+                    return db_1.default.rollback(() => {
+                        res.status(500).json({ error: 'Error al confirmar la transacción.' });
+                    });
+                }
+                // Responde con los resultados
+                res.json(results);
+            });
+        });
+    }
+    catch (err) {
+        console.error('Error al procesar la solicitud:', err);
+        // Manejo del rollback en caso de error
+        db_1.default.rollback(() => {
+            res.status(500).json({ error: 'Error interno en el servidor.' });
+        });
+    }
+}));
 exports.default = router;

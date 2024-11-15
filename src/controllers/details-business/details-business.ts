@@ -5,6 +5,7 @@ const bodyParser = require("body-parser");
 router.use(bodyParser.json());
 import decodeToken from "../../functions/decodeToken";
 import { RowDataPacket } from "mysql2";
+import { Request, Response } from 'express';
 
 router.get("/", async (req, res) => {
   try {
@@ -1210,6 +1211,64 @@ router.get("/searchFaqs", async (req, res) => {
   } catch (err) {
     console.error("Error al buscar las preguntas:", err);
     res.status(500).json({ error: "Error al buscar las preguntas." });
+  }
+});
+
+
+router.get('/getJobOffers', async (req: Request, res: Response) => {
+  const { id } = req.query;
+
+  if (!id) {
+    return res.status(400).json({ error: 'El ID del salón es requerido.' });
+  }
+
+  try {
+    console.log('Id del salón recibida:', id);
+
+    // Inicia la transacción
+    await new Promise<void>((resolve, reject) => {
+      connection.beginTransaction((err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+
+    const query = `
+      SELECT *
+      FROM jobs_offers 
+      WHERE id_salon = ?
+    `;
+
+    connection.query(query, [id], (error, results) => {
+      if (error) {
+        console.error('Error al buscar las ofertas de trabajo:', error);
+
+        return connection.rollback(() => {
+          res.status(500).json({ error: 'Error al buscar las ofertas de trabajo.' });
+        });
+      }
+
+      // Realiza el commit de la transacción
+      connection.commit((err) => {
+        if (err) {
+          console.error('Error al hacer commit:', err);
+
+          return connection.rollback(() => {
+            res.status(500).json({ error: 'Error al confirmar la transacción.' });
+          });
+        }
+
+        // Responde con los resultados
+        res.json(results);
+      });
+    });
+  } catch (err) {
+    console.error('Error al procesar la solicitud:', err);
+
+    // Manejo del rollback en caso de error
+    connection.rollback(() => {
+      res.status(500).json({ error: 'Error interno en el servidor.' });
+    });
   }
 });
 
