@@ -18,10 +18,11 @@ const salon_reclamation_1 = __importDefault(require("./controllers/salon-reclama
 const home_1 = __importDefault(require("./controllers/home/home"));
 const profileUser_1 = __importDefault(require("./controllers/profileUser/profileUser"));
 const favorite_salon_1 = __importDefault(require("./controllers/favorite-salon/favorite-salon"));
-const generate_sitemap_1 = __importDefault(require("./functions/generate-sitemap"));
+const generate_sitemap_1 = __importDefault(require("./public/generate-sitemap"));
 const path_1 = __importDefault(require("path"));
 const decodeTokenIdUser_1 = __importDefault(require("./functions/decodeTokenIdUser"));
 const http_1 = __importDefault(require("http"));
+const robots_1 = __importDefault(require("./public/robots"));
 const socket_io_1 = require("socket.io");
 const app = (0, express_1.default)();
 const server = http_1.default.createServer(app);
@@ -61,6 +62,7 @@ app.use('/profile-user', profileUser_1.default);
 app.use('/favorites', favorite_salon_1.default);
 app.use('/sitemap.xml', generate_sitemap_1.default);
 app.use('/decode-token', decodeTokenIdUser_1.default);
+app.use('/robots.txt', robots_1.default);
 io.on('connection', (socket) => {
     //console.log('Cliente conectado a Socket.IO');
     // Manejo de mensajes recibidos del cliente

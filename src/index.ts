@@ -13,10 +13,11 @@ import salonReclamation from './controllers/salon-reclamation/salon-reclamation'
 import Home from './controllers/home/home';
 import ProfileUser from './controllers/profileUser/profileUser';
 import favoritesSalon from './controllers/favorite-salon/favorite-salon';
-import siteMap from './functions/generate-sitemap';
+import siteMap from './public/generate-sitemap';
 import path from 'path';
 import decodeTokenIdUser from './functions/decodeTokenIdUser';
 import http from 'http';
+import robot from './public/robots'
 import { Server as SocketIOServer } from 'socket.io';
 
 
@@ -71,6 +72,7 @@ app.use(function(req, res, next) {
   app.use('/favorites',favoritesSalon);
   app.use('/sitemap.xml', siteMap);
   app.use('/decode-token',decodeTokenIdUser);
+  app.use('/robots.txt',robot);
 
 
 
