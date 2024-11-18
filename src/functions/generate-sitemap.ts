@@ -30,6 +30,7 @@ const getBusinessUrls = (): Promise<string[]> => {
 router.get('/', async (req: Request, res: Response) => {
   const root = xmlbuilder.create('urlset', { version: '1.0', encoding: 'UTF-8' });
   root.att('xmlns', 'http://www.sitemaps.org/schemas/sitemap/0.9');
+  root.att('xmlns:video', 'http://www.google.com/schemas/sitemap-video/1.1');
 
   const staticRoutes = [
     '/',

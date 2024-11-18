@@ -148,7 +148,7 @@ router.get("/searchProvince", (req, res) => __awaiter(void 0, void 0, void 0, fu
     }
 }));
 router.get("/getProvinces", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const query = `SELECT id_province, name FROM province`;
+    const query = `SELECT id_province, name FROM province ORDER BY name`;
     db_1.default.query(query, (queryError, results) => {
         if (queryError) {
             console.error("Error fetching provinces:", queryError);
@@ -175,7 +175,7 @@ router.get("/getCitiesByProvince", (req, res) => __awaiter(void 0, void 0, void 
       JOIN 
         city c ON p.id_province = c.id_province
       WHERE 
-        p.id_province = ?;
+        p.id_province = ? order by c.name;
     `;
     db_1.default.query(query, [id_province], (queryError, results) => {
         if (queryError) {

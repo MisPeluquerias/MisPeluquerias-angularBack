@@ -38,6 +38,7 @@ const getBusinessUrls = () => {
 router.get('/', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const root = xmlbuilder_1.default.create('urlset', { version: '1.0', encoding: 'UTF-8' });
     root.att('xmlns', 'http://www.sitemaps.org/schemas/sitemap/0.9');
+    root.att('xmlns:video', 'http://www.google.com/schemas/sitemap-video/1.1');
     const staticRoutes = [
         '/',
         '/home',
