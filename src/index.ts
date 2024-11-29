@@ -19,9 +19,8 @@ import decodeTokenIdUser from './functions/decodeTokenIdUser';
 import http from 'http';
 import robot from './public/robots'
 import { Server as SocketIOServer } from 'socket.io';
-
-
-
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
 
 const app = express();
 
@@ -44,12 +43,26 @@ app.use((req: any, res, next) => {
 });
 
 
-app.use(express.json());
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 1000, // Máximo 1000 solicitudes por IP
+});
 
+app.use(limiter);
+
+
+app.use(limiter);
+
+app.use(express.json());
+app.use(compression());
 
 app.use(cors());
 
+
+
 app.use('/uploads-reclamation', express.static(path.join(__dirname, '../dist/uploads-reclamation')));
+app.use('/uploads-curriculums', express.static(path.join(__dirname, '../dist/uploads-curriculums')));
+
 
 app.use(function(req, res, next) {
     res.header("Access-Control-Allow-Origin", "*");

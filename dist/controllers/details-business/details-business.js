@@ -18,6 +18,24 @@ const db_1 = __importDefault(require("../../db/db"));
 const bodyParser = require("body-parser");
 router.use(bodyParser.json());
 const decodeToken_1 = __importDefault(require("../../functions/decodeToken"));
+const multer_1 = __importDefault(require("multer"));
+const path_1 = __importDefault(require("path"));
+const fs_1 = __importDefault(require("fs"));
+const token_1 = __importDefault(require("../../token/token"));
+const uploadDir = path_1.default.join(__dirname, "../../../dist/uploads-curriculums");
+// Crear la carpeta si no existe
+if (!fs_1.default.existsSync(uploadDir)) {
+    fs_1.default.mkdirSync(uploadDir, { recursive: true });
+}
+const storage = multer_1.default.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, uploadDir);
+    },
+    filename: function (req, file, cb) {
+        cb(null, `${Date.now()}-${file.originalname}`);
+    },
+});
+const upload = (0, multer_1.default)({ storage: storage });
 router.get("/", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { id, id_user } = req.query;
@@ -55,10 +73,14 @@ router.get("/", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
       s.tiktok_url, 
       s.youtube_url,
       ${decodedUserId ? "user_favourite.id_user_favourite," : ""}
-      ${decodedUserId ? "IF(user_favourite.id_user IS NOT NULL, true, false) AS is_favorite," : "false AS is_favorite,"}
+      ${decodedUserId
+            ? "IF(user_favourite.id_user IS NOT NULL, true, false) AS is_favorite,"
+            : "false AS is_favorite,"}
       c.name AS city_name
     FROM salon s
-    ${decodedUserId ? "LEFT JOIN user_favourite ON s.id_salon = user_favourite.id_salon AND user_favourite.id_user = ?" : ""}
+    ${decodedUserId
+            ? "LEFT JOIN user_favourite ON s.id_salon = user_favourite.id_salon AND user_favourite.id_user = ?"
+            : ""}
     INNER JOIN city c ON s.id_city = c.id_city
     WHERE s.id_salon = ?
     GROUP BY s.id_salon;
@@ -1064,13 +1086,16 @@ router.get("/searchFaqs", (req, res) => __awaiter(void 0, void 0, void 0, functi
         res.status(500).json({ error: "Error al buscar las preguntas." });
     }
 }));
-router.get('/getJobOffers', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+router.get("/getJobOffers", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.query;
+    const page = parseInt(req.query.page) || 1; // Página actual (por defecto 1)
+    const limit = parseInt(req.query.limit) || 2; // Cantidad de ofertas por página (por defecto 2)
+    const offset = (page - 1) * limit;
     if (!id) {
-        return res.status(400).json({ error: 'El ID del salón es requerido.' });
+        return res.status(400).json({ error: "El ID del salón es requerido." });
     }
     try {
-        console.log('Id del salón recibida:', id);
+        //console.log('Id del salón recibida:', id);
         // Inicia la transacción
         yield new Promise((resolve, reject) => {
             db_1.default.beginTransaction((err) => {
@@ -1079,37 +1104,133 @@ router.get('/getJobOffers', (req, res) => __awaiter(void 0, void 0, void 0, func
                 resolve();
             });
         });
+        // Consulta para obtener las ofertas de trabajo con paginación
         const query = `
       SELECT *
       FROM jobs_offers 
       WHERE id_salon = ?
+      LIMIT ? OFFSET ?;
     `;
-        db_1.default.query(query, [id], (error, results) => {
-            if (error) {
-                console.error('Error al buscar las ofertas de trabajo:', error);
-                return db_1.default.rollback(() => {
-                    res.status(500).json({ error: 'Error al buscar las ofertas de trabajo.' });
-                });
-            }
-            // Realiza el commit de la transacción
-            db_1.default.commit((err) => {
-                if (err) {
-                    console.error('Error al hacer commit:', err);
-                    return db_1.default.rollback(() => {
-                        res.status(500).json({ error: 'Error al confirmar la transacción.' });
-                    });
-                }
-                // Responde con los resultados
-                res.json(results);
+        // Consulta para contar el total de ofertas de trabajo
+        const countQuery = `
+      SELECT COUNT(*) AS total
+      FROM jobs_offers
+      WHERE id_salon = ?;
+    `;
+        // Realiza la consulta principal
+        const offers = yield new Promise((resolve, reject) => {
+            db_1.default.query(query, [id, limit, offset], (error, results) => {
+                if (error)
+                    return reject(error);
+                resolve(results);
             });
+        });
+        // Realiza la consulta para contar los registros
+        const total = yield new Promise((resolve, reject) => {
+            db_1.default.query(countQuery, [id], (error, results) => {
+                var _a;
+                if (error)
+                    return reject(error);
+                resolve(((_a = results[0]) === null || _a === void 0 ? void 0 : _a.total) || 0);
+            });
+        });
+        // Realiza el commit de la transacción
+        yield new Promise((resolve, reject) => {
+            db_1.default.commit((err) => {
+                if (err)
+                    return reject(err);
+                resolve();
+            });
+        });
+        // Responde con los resultados paginados y el total
+        res.json({
+            jobs: offers,
+            total,
+            currentPage: page,
+            pageSize: limit,
         });
     }
     catch (err) {
-        console.error('Error al procesar la solicitud:', err);
+        console.error("Error al procesar la solicitud:", err);
         // Manejo del rollback en caso de error
         db_1.default.rollback(() => {
-            res.status(500).json({ error: 'Error interno en el servidor.' });
+            res.status(500).json({ error: "Error interno en el servidor." });
         });
     }
 }));
+router.post("/addInscripcionJobOffer", token_1.default, upload.fields([{ name: "curriculum", maxCount: 1 }]), // Archivo del currículum
+(req, res) => {
+    // Verificar si se subieron archivos
+    if (!req.files) {
+        return res.status(400).send("No se subieron archivos.");
+    }
+    const files = req.files;
+    const curriculumFile = files["curriculum"] ? files["curriculum"][0].filename : null;
+    // Construir la URL completa para el archivo del currículum
+    const curriculumUrl = curriculumFile
+        ? `${req.protocol}://${req.get("host")}/uploads-curriculums/${curriculumFile}`
+        : null;
+    // Extraer y validar los datos del cuerpo de la solicitud
+    const { id_job_offer, // ID de la oferta de empleo
+    id_user, // Token del usuario
+    id_salon, // ID del salón
+    description, // Descripción del interés del usuario
+    privacy_policy, // Checkbox de política de privacidad
+     } = req.body;
+    //console.log(req.body);
+    // Validar los datos del cuerpo de la solicitud
+    if (!id_job_offer || !id_user || !id_salon || !description || !privacy_policy || !curriculumUrl) {
+        return res.status(400).send("Faltan campos requeridos o el currículum no fue subido.");
+    }
+    // Decodificar el ID del usuario desde el token
+    let usuarioId;
+    try {
+        usuarioId = (0, decodeToken_1.default)(id_user); // Decodificar el token para obtener el ID del usuario
+    }
+    catch (error) {
+        return res.status(400).send("Token de usuario inválido.");
+    }
+    // Iniciar la transacción
+    db_1.default.beginTransaction((err) => {
+        if (err) {
+            return res.status(500).send("Error en el servidor al iniciar la transacción.");
+        }
+        const sql = `
+        INSERT INTO user_job_subscriptions (
+          id_job_offer, 
+          id_user, 
+          id_salon, 
+          work_presentation, 
+          path_curriculum, 
+          privacy_policy,
+          date_subscriptions
+        )
+        VALUES (?, ?, ?, ?, ?, ?, NOW());
+      `;
+        // Ejecutar la consulta para insertar la inscripción
+        db_1.default.query(sql, [
+            id_job_offer,
+            usuarioId, // ID del usuario decodificado
+            id_salon,
+            description, // Usamos `description` como `work_presentation`
+            curriculumUrl, // URL del archivo de currículum
+            privacy_policy,
+        ], (err, result) => {
+            if (err) {
+                return db_1.default.rollback(() => {
+                    return res.status(500).send("Error al registrar la inscripción.");
+                });
+            }
+            // Confirmar la transacción
+            db_1.default.commit((err) => {
+                if (err) {
+                    return db_1.default.rollback(() => {
+                        return res.status(500).send("Error en el servidor al confirmar la transacción.");
+                    });
+                }
+                return res.status(200).json({ message: "Inscripción registrada con éxito" });
+            });
+        });
+    });
+});
 exports.default = router;
