@@ -1423,5 +1423,121 @@ router.post(
 );
 
 
+router.get("/getSalonSchema", async (req, res) => {
+  try {
+    const { id_salon } = req.query;
+
+    if (!id_salon) {
+      return res.status(400).json({
+        error: "El parámetro 'id_salon' es requerido.",
+      });
+    }
+
+    // Iniciar la transacción
+    await new Promise<void>((resolve, reject) => {
+      connection.beginTransaction((err) => {
+        if (err) return reject(err);
+        resolve();
+      });
+    });
+
+    // Consulta para obtener los datos del salón
+    const query = `
+      SELECT 
+        s.id_salon, 
+        s.name, 
+        s.address, 
+        s.latitud, 
+        s.longitud, 
+        s.phone, 
+        s.image, 
+        s.about_us, 
+        s.facebook_url, 
+        s.instagram_url, 
+        s.tiktok_url, 
+        s.youtube_url, 
+        AVG(r.qualification) AS avg_rating,
+        COUNT(r.id_review) AS total_reviews
+      FROM salon s
+      LEFT JOIN review r ON s.id_salon = r.id_salon
+      WHERE s.id_salon = ?
+      GROUP BY s.id_salon
+    `;
+
+    // Ejecutar la consulta con parámetro genérico RowDataPacket[]
+    connection.query<RowDataPacket[]>(query, [id_salon], (error, results) => {
+      if (error) {
+        console.error("Error al buscar el salón:", error);
+        return connection.rollback(() => {
+          res.status(500).json({ error: "Error al buscar el salón." });
+        });
+      }
+
+      // Verificar si los resultados son un arreglo de filas
+      if (!Array.isArray(results)) {
+        return connection.rollback(() => {
+          res.status(500).json({ error: "Resultados inesperados de la consulta." });
+        });
+      }
+
+      if (results.length === 0) {
+        return connection.rollback(() => {
+          res.status(404).json({ error: "Salón no encontrado." });
+        });
+      }
+
+      const salon = results[0]; // Obtenemos la primera fila de resultados
+
+      // Generar el JSON-LD para Schema.org
+      const schema = {
+        "@context": "https://schema.org",
+        "@type": "BeautySalon",
+        "name": salon.name,
+        "url": `https://www.mispeluquerias.com/centro/${encodeURIComponent(salon.name)}/${salon.id_salon}`,
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": salon.address,
+          "addressCountry": "ES",
+        },
+        "geo": {
+          "@type": "GeoCoordinates",
+          "latitude": salon.latitud,
+          "longitude": salon.longitud,
+        },
+        "telephone": salon.phone,
+        "image": salon.image,
+        "description": salon.about_us || "Información no disponible.",
+        "aggregateRating": {
+          "@type": "AggregateRating",
+          "ratingValue": salon.avg_rating ? parseFloat(salon.avg_rating.toFixed(1)) : "0",
+          "reviewCount": salon.total_reviews || "0",
+        },
+        "sameAs": [
+          salon.facebook_url || "",
+          salon.instagram_url || "",
+          salon.tiktok_url || "",
+          salon.youtube_url || "",
+        ].filter((url) => url !== ""), // Eliminar URLs vacías
+      };
+
+      // Confirmar la transacción
+      connection.commit((err) => {
+        if (err) {
+          console.error("Error al hacer commit:", err);
+          return connection.rollback(() => {
+            res.status(500).json({ error: "Error al confirmar la transacción." });
+          });
+        }
+
+        // Responder con el JSON-LD
+        res.json(schema);
+      });
+    });
+  } catch (err) {
+    console.error("Error al generar el Schema:", err);
+    res.status(500).json({ error: "Error al generar el Schema." });
+  }
+});
+
 
 export default router;

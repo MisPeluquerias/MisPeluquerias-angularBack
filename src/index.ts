@@ -19,8 +19,8 @@ import decodeTokenIdUser from './functions/decodeTokenIdUser';
 import http from 'http';
 import robot from './public/robots'
 import { Server as SocketIOServer } from 'socket.io';
-import compression from 'compression';
-import rateLimit from 'express-rate-limit';
+import candidatures from './controllers/candidatures/candidatures'
+
 
 const app = express();
 
@@ -42,19 +42,7 @@ app.use((req: any, res, next) => {
   next();
 });
 
-
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 1000, // Máximo 1000 solicitudes por IP
-});
-
-app.use(limiter);
-
-
-app.use(limiter);
-
 app.use(express.json());
-app.use(compression());
 
 app.use(cors());
 
@@ -86,6 +74,7 @@ app.use(function(req, res, next) {
   app.use('/sitemap.xml', siteMap);
   app.use('/decode-token',decodeTokenIdUser);
   app.use('/robots.txt',robot);
+  app.use('/candidatures',candidatures);
 
 
 

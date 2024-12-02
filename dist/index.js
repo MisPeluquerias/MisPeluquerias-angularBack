@@ -24,8 +24,7 @@ const decodeTokenIdUser_1 = __importDefault(require("./functions/decodeTokenIdUs
 const http_1 = __importDefault(require("http"));
 const robots_1 = __importDefault(require("./public/robots"));
 const socket_io_1 = require("socket.io");
-const compression_1 = __importDefault(require("compression"));
-const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
+const candidatures_1 = __importDefault(require("./controllers/candidatures/candidatures"));
 const app = (0, express_1.default)();
 const server = http_1.default.createServer(app);
 // Configuración de Socket.IO con CORS para permitir todos los orígenes
@@ -41,14 +40,7 @@ app.use((req, res, next) => {
     req.io = io;
     next();
 });
-const limiter = (0, express_rate_limit_1.default)({
-    windowMs: 15 * 60 * 1000, // 15 minutos
-    max: 1000, // Máximo 1000 solicitudes por IP
-});
-app.use(limiter);
-app.use(limiter);
 app.use(express_1.default.json());
-app.use((0, compression_1.default)());
 app.use((0, cors_1.default)());
 app.use('/uploads-reclamation', express_1.default.static(path_1.default.join(__dirname, '../dist/uploads-reclamation')));
 app.use('/uploads-curriculums', express_1.default.static(path_1.default.join(__dirname, '../dist/uploads-curriculums')));
@@ -73,6 +65,7 @@ app.use('/favorites', favorite_salon_1.default);
 app.use('/sitemap.xml', generate_sitemap_1.default);
 app.use('/decode-token', decodeTokenIdUser_1.default);
 app.use('/robots.txt', robots_1.default);
+app.use('/candidatures', candidatures_1.default);
 io.on('connection', (socket) => {
     //console.log('Cliente conectado a Socket.IO');
     // Manejo de mensajes recibidos del cliente
