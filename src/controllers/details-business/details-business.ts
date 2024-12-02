@@ -1489,36 +1489,41 @@ router.get("/getSalonSchema", async (req, res) => {
       const salon = results[0]; // Obtenemos la primera fila de resultados
 
       // Generar el JSON-LD para Schema.org
-      const schema = {
+      const schema: any = {
         "@context": "https://schema.org",
         "@type": "BeautySalon",
         "name": salon.name,
-        "url": `https://www.mispeluquerias.com/centro/${encodeURIComponent(salon.name)}/${salon.id_salon}`,
+        "url": `https://www.mispeluquerias.com/centro/${salon.name}/${salon.id}`,
         "address": {
           "@type": "PostalAddress",
           "streetAddress": salon.address,
-          "addressCountry": "ES",
+          "addressCountry": "ES"
         },
         "geo": {
           "@type": "GeoCoordinates",
           "latitude": salon.latitud,
-          "longitude": salon.longitud,
+          "longitude": salon.longitud
         },
         "telephone": salon.phone,
         "image": salon.image,
         "description": salon.about_us || "Información no disponible.",
-        "aggregateRating": {
-          "@type": "AggregateRating",
-          "ratingValue": salon.avg_rating ? parseFloat(salon.avg_rating.toFixed(1)) : "0",
-          "reviewCount": salon.total_reviews || "0",
-        },
         "sameAs": [
           salon.facebook_url || "",
           salon.instagram_url || "",
           salon.tiktok_url || "",
-          salon.youtube_url || "",
-        ].filter((url) => url !== ""), // Eliminar URLs vacías
+          salon.youtube_url || ""
+        ]
       };
+      
+      // Agregar AggregateRating solo si los valores son válidos
+      if (salon.avg_rating > 0 && salon.total_reviews > 0) {
+        schema.aggregateRating = {
+          "@type": "AggregateRating",
+          "ratingValue": salon.avg_rating,
+          "reviewCount": salon.total_reviews
+        };
+      }
+      
 
       // Confirmar la transacción
       connection.commit((err) => {
