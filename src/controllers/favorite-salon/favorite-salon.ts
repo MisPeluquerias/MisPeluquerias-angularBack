@@ -9,6 +9,8 @@ import verifyToken from '../../token/token';
 const router = express.Router();
 router.use(bodyParser.json());
 
+
+
 // Endpoint para añadir un favorito
 router.post('/add',verifyToken, (req: Request, res: Response) => {
     const { id_user, id_salon } = req.body;
@@ -57,6 +59,7 @@ router.post('/add',verifyToken, (req: Request, res: Response) => {
     });
 });
 
+
 // Endpoint para eliminar un favorito
 router.delete('/delete/:id_user_favorite',verifyToken, async(req: Request, res: Response) => {
     const { id_user_favorite } = req.params;
@@ -103,6 +106,8 @@ router.delete('/delete/:id_user_favorite',verifyToken, async(req: Request, res: 
     });
 });
 
+
+
 router.get('/get',verifyToken, (req: Request, res: Response) => {
     const { id_user } = req.query; // Aquí debes usar req.query
 
@@ -136,6 +141,7 @@ router.get('/get',verifyToken, (req: Request, res: Response) => {
         return res.status(200).json(results);
     });
 });
+
 
 
 router.get("/getImagesAdmin", async (req, res) => {
@@ -191,5 +197,6 @@ router.get("/getImagesAdmin", async (req, res) => {
       res.status(500).json({ error: "Error al buscar las imagenes en el salon" });
     }
   });
+
 
 export default router;
