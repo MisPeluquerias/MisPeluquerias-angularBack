@@ -41,7 +41,7 @@ router.get("/", async (req, res) => {
     if (!id) {
       return res
         .status(400)
-        .json({ error: "El parámetro 'zone' es requerido." });
+        .json({ error: "El parámetro 'id' es requerido." });
     }
 
     // Iniciar la transacción
@@ -62,7 +62,8 @@ router.get("/", async (req, res) => {
       s.name AS name, 
       s.address, 
       s.image, 
-      s.phone, 
+      s.phone,
+      s.whatsapp_phone, 
       s.email, 
       s.hours_old, 
       s.url,
@@ -115,6 +116,7 @@ router.get("/", async (req, res) => {
   }
 });
 
+
 router.get("/loadReview", async (req, res) => {
   try {
     const { id } = req.query;
@@ -122,7 +124,7 @@ router.get("/loadReview", async (req, res) => {
     if (!id) {
       return res
         .status(400)
-        .json({ error: "El parámetro 'zone' es requerido." });
+        .json({ error: "El parámetro 'id' es requerido." });
     }
 
     // Iniciar la transacción
@@ -1543,6 +1545,112 @@ router.get("/getSalonSchema", async (req, res) => {
     res.status(500).json({ error: "Error al generar el Schema." });
   }
 });
+
+
+router.delete("/deleteJobOffer/:id_job_offer", (req, res) => {
+  const { id_job_offer } = req.params;
+
+  // Validar el ID
+  if (!id_job_offer || isNaN(Number(id_job_offer))) {
+    return res.status(400).json({ message: "ID de la oferta no válido." });
+  }
+
+  connection.beginTransaction((err) => {
+    if (err) {
+      console.error("Error al iniciar la transacción:", err);
+      return res.status(500).json({ message: "Error interno del servidor." });
+    }
+
+    // Obtener todas las rutas de currículos asociados al id_job_offer
+    const selectSubscriptionsQuery =
+      "SELECT path_curriculum FROM user_job_subscriptions WHERE id_job_offer = ?";
+
+    connection.query<RowDataPacket[]>(selectSubscriptionsQuery, [id_job_offer], (selectErr, subscriptions) => {
+      if (selectErr) {
+        console.error("Error al obtener las suscripciones:", selectErr);
+        return connection.rollback(() => {
+          res.status(500).json({ message: "Error interno del servidor." });
+        });
+      }
+
+      // Verificar si existen suscripciones asociadas
+      if (!subscriptions || subscriptions.length === 0) {
+        console.warn("No hay suscripciones asociadas a la oferta.");
+      } else {
+        subscriptions.forEach((subscription) => {
+          if (subscription.path_curriculum) {
+            // Obtener el nombre del archivo
+            const fileName = path.basename(subscription.path_curriculum);
+
+            // Construir la ruta absoluta del archivo
+            const curriculumPath = path.join(
+              __dirname,
+              "../../../dist/uploads-curriculums",
+              fileName
+            );
+
+            // Eliminar físicamente el archivo
+            fs.unlink(curriculumPath, (unlinkErr) => {
+              if (unlinkErr) {
+                console.error("Error al eliminar el archivo:", curriculumPath, unlinkErr);
+              } else {
+                console.log(`Archivo eliminado: ${curriculumPath}`);
+              }
+            });
+          } else {
+            console.warn("No se encontró la ruta del archivo para esta suscripción.");
+          }
+        });
+      }
+
+      // Eliminar las suscripciones asociadas
+      const deleteSubscriptionsQuery =
+        "DELETE FROM user_job_subscriptions WHERE id_job_offer = ?";
+
+      connection.query(deleteSubscriptionsQuery, [id_job_offer], (deleteSubsErr) => {
+        if (deleteSubsErr) {
+          console.error("Error al eliminar las suscripciones:", deleteSubsErr);
+          return connection.rollback(() => {
+            res.status(500).json({ message: "Error interno del servidor." });
+          });
+        }
+
+        // Eliminar la oferta de empleo
+        const deleteOfferQuery = "DELETE FROM jobs_offers WHERE id_job_offer = ?";
+
+        connection.query<ResultSetHeader>(deleteOfferQuery, [id_job_offer], (deleteOfferErr, result) => {
+          if (deleteOfferErr) {
+            console.error("Error al eliminar la oferta de empleo:", deleteOfferErr);
+            return connection.rollback(() => {
+              res.status(500).json({ message: "Error interno del servidor." });
+            });
+          }
+
+          if (result.affectedRows === 0) {
+            return connection.rollback(() => {
+              res.status(404).json({ message: "Oferta de empleo no encontrada." });
+            });
+          }
+
+          // Confirmar la transacción
+          connection.commit((commitErr) => {
+            if (commitErr) {
+              console.error("Error al confirmar la transacción:", commitErr);
+              return connection.rollback(() => {
+                res.status(500).json({ message: "Error interno del servidor." });
+              });
+            }
+
+            return res.status(200).json({
+              message: "Oferta de empleo y suscripciones eliminadas con éxito.",
+            });
+          });
+        });
+      });
+    });
+  });
+});
+
 
 
 export default router;

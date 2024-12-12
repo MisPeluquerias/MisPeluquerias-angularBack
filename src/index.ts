@@ -58,6 +58,7 @@ app.use(function(req, res, next) {
     next();
   });
 
+  
   app.use('/searchBar',searchBar);
   app.use('/business',RegisteredsearchBusiness);
   app.use('/login',Login);
